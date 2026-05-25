@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Padel Replay</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #0d0d0d;
+      color: #f0f0f0;
+      font-family: 'Helvetica Neue', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 20px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    #status {
+      font-size: 0.95rem;
+      padding: 8px 20px;
+      border-radius: 999px;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      transition: all 0.3s;
+    }
+
+    #status.connected {
+      border-color: #22c55e;
+      color: #22c55e;
+    }
+
+    #status.ready {
+      border-color: #facc15;
+      color: #facc15;
+      background: #1a1500;
+    }
+
+    #status.error {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    #player-wrap {
+      width: 100%;
+      max-width: 900px;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #222;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    #player {
+      width: 100%;
+      display: block;
+      background: #000;
+    }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.05s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>⚡ Padel Replay</h1>
+  <div id="status">กำลังเชื่อมต่อ...</div>
+
+  <div id="player-wrap">
+    <video id="player" controls playsinline></video>
+  </div>
+
+  <div id="flash"></div>
+
+  <script>
+    const player = document.getElementById('player');
+    const status = document.getElementById('status');
+    const flash = document.getElementById('flash');
+
+    function setStatus(text, cls) {
+      status.textContent = text;
+      status.className = cls || '';
+    }
+
+    function triggerFlash() {
+      flash.style.opacity = '0.4';
+      setTimeout(() => { flash.style.opacity = '0'; }, 150);
+    }
+
+    // ── WebSocket ─────────────────────────────────────────────────────────
+    const wsUrl = `ws://${location.host}/ws`;
+    let ws;
+
+    function connect() {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        setStatus('✅ เชื่อมต่อแล้ว — รอ Replay...', 'connected');
+        // ส่ง ping ทุก 20s เพื่อ keep-alive
+        setInterval(() => ws.readyState === 1 && ws.send('ping'), 20_000);
+      };
+
+      ws.onmessage = ({ data }) => {
+        const msg = JSON.parse(data);
+        if (msg.event === 'replay_ready') {
+          setStatus('🎬 Replay Ready!', 'ready');
+          triggerFlash();
+          // cache-bust เพื่อโหลดคลิปใหม่ทุกครั้ง
+          player.src = `/replay?t=${Date.now()}`;
+          player.load();
+          player.play().catch(() => { });
+        }
+      };
+
+      ws.onerror = () => setStatus('⚠️ Connection error', 'error');
+      ws.onclose = () => {
+        setStatus('🔴 Disconnected — กำลัง reconnect...', 'error');
+        setTimeout(connect, 3000);  // reconnect อัตโนมัติ
+      };
+    }
+
+    connect();
+  </script>
+</body>
+
+</html>

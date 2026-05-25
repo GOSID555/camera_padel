@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Virtual environment
+.env
+
+# Generated files
+segments/
+web/replay.mp4
+
+# Claude memory
+.claude/
+
+# macOS
+.DS_Store
