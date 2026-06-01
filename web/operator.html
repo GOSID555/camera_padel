@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Operator — Padel Replay</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #0d0d0d;
+      color: #f0f0f0;
+      font-family: 'Helvetica Neue', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      gap: 32px;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    /* ── Big replay button ── */
+    #btn-replay {
+      width: min(340px, 90vw);
+      height: min(340px, 90vw);
+      border-radius: 50%;
+      border: 4px solid #facc15;
+      background: #1a1500;
+      color: #facc15;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.1s, background 0.1s;
+      user-select: none;
+    }
+
+    #btn-replay .icon { font-size: 3.5rem; }
+
+    #btn-replay:active,
+    #btn-replay.pressing {
+      transform: scale(0.93);
+      background: #2a2000;
+    }
+
+    #btn-replay.success {
+      border-color: #22c55e;
+      background: #0a1f0a;
+      color: #22c55e;
+    }
+
+    #btn-replay.error {
+      border-color: #ef4444;
+      background: #1f0a0a;
+      color: #ef4444;
+    }
+
+    /* ── Clip counter ── */
+    #clip-count {
+      font-size: 1rem;
+      color: #888;
+      letter-spacing: 1px;
+    }
+
+    #clip-count span {
+      color: #facc15;
+      font-weight: 700;
+      font-size: 1.3rem;
+    }
+
+    /* ── Status dot ── */
+    #status {
+      font-size: 0.85rem;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+    }
+    #dot.online  { background: #22c55e; }
+    #dot.offline { background: #ef4444; }
+
+    /* ── DEV ONLY ── */
+    #dev-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
+      border: 1px dashed #333;
+      border-radius: 10px;
+      background: #111;
+    }
+    #dev-label {
+      font-size: 0.75rem;
+      color: #555;
+      letter-spacing: 1px;
+    }
+    #btn-stop {
+      background: transparent;
+      border: 1px solid #ef4444;
+      color: #ef4444;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    #btn-stop:active { background: #1f0a0a; }
+  </style>
+</head>
+<body>
+
+  <h1>🎾 Padel Replay</h1>
+
+  <button id="btn-replay" onclick="triggerReplay()">
+    <span class="icon">⚡</span>
+    <span id="btn-label">REPLAY</span>
+  </button>
+
+  <div id="clip-count">คลิปวันนี้: <span id="count">0</span></div>
+
+  <div id="status">
+    <div id="dot"></div>
+    <span id="status-text">กำลังเชื่อมต่อ...</span>
+  </div>
+
+  <!-- DEV ONLY: ลบบล็อกนี้ออกตอน production -->
+  <div id="dev-bar">
+    <span id="dev-label">🛠 DEV</span>
+    <button id="btn-stop" onclick="stopSystem()">⏹ หยุดระบบ</button>
+  </div>
+
+  <script>
+    const btn      = document.getElementById('btn-replay');
+    const label    = document.getElementById('btn-label');
+    const countEl  = document.getElementById('count');
+    const dot      = document.getElementById('dot');
+    const statusEl = document.getElementById('status-text');
+
+    let clipCount = 0;
+    let busy = false;
+
+    // ── WebSocket (รับ event replay_ready เพื่ออัป counter) ─────────────────
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+
+    ws.onopen = () => {
+      dot.className = 'online';
+      statusEl.textContent = 'เชื่อมต่อแล้ว';
+    };
+    ws.onmessage = ({ data }) => {
+      const msg = JSON.parse(data);
+      if (msg.event === 'replay_ready') {
+        clipCount++;
+        countEl.textContent = clipCount;
+      }
+    };
+    ws.onerror = ws.onclose = () => {
+      dot.className = 'offline';
+      statusEl.textContent = 'ขาดการเชื่อมต่อ...';
+      setTimeout(() => location.reload(), 3000);
+    };
+
+    // ── Trigger ──────────────────────────────────────────────────────────────
+    async function triggerReplay() {
+      if (busy) return;
+      busy = true;
+
+      btn.classList.add('pressing');
+      label.textContent = 'กำลังตัด...';
+
+      try {
+        const res = await fetch('/trigger', { method: 'POST' });
+        if (res.ok) {
+          btn.classList.remove('pressing');
+          btn.classList.add('success');
+          label.textContent = 'ส่งแล้ว ✓';
+          setTimeout(reset, 1500);
+        } else {
+          throw new Error('not ready');
+        }
+      } catch {
+        btn.classList.remove('pressing');
+        btn.classList.add('error');
+        label.textContent = 'ลองใหม่';
+        setTimeout(reset, 2000);
+      }
+    }
+
+    function reset() {
+      btn.className = '';
+      label.textContent = 'REPLAY';
+      busy = false;
+    }
+
+    // ── DEV ONLY ─────────────────────────────────────────────────────────────
+    async function stopSystem() {
+      if (!confirm('หยุดระบบ?')) return;
+      await fetch('/stop', { method: 'POST' });
+    }
+  </script>
+</body>
+</html>

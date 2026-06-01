@@ -47,6 +47,11 @@ async def index():
     return FileResponse("web/index.html")
 
 
+@app.get("/operator")
+async def operator():
+    return FileResponse("web/operator.html")
+
+
 @app.post("/stop")
 async def stop_recording():
     if _stop_callback:

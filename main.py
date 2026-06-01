@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import os
+import re
+import subprocess
 from pathlib import Path
 
 import uvicorn
@@ -19,21 +21,62 @@ REPLAY_PATH = WEB_DIR / "replay.mp4"
 SEGMENTS_DIR.mkdir(exist_ok=True)
 WEB_DIR.mkdir(exist_ok=True)
 
+# ── camera picker ─────────────────────────────────────────────────────────────
+
+def list_cameras() -> list[tuple[str, str]]:
+    """คืนค่า list ของ (index, ชื่อกล้อง) จาก avfoundation"""
+    result = subprocess.run(
+        ["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+        capture_output=True, text=True
+    )
+    cameras = []
+    # parse บรรทัดที่มี [x] ชื่อกล้อง
+    for line in result.stderr.splitlines():
+        m = re.search(r'\[(\d+)\]\s+(.+)', line)
+        if m and "AVFoundation video" not in line and "AVFoundation audio" not in line:
+            cameras.append((m.group(1), m.group(2).strip()))
+    return cameras
+
+
+def pick_device(args_device: str) -> str:
+    """ถ้าไม่ได้ระบุ --device ให้แสดงเมนูเลือกกล้อง"""
+    if args_device != "__pick__":
+        return args_device
+
+    cameras = list_cameras()
+    if not cameras:
+        print("[Camera] ไม่พบกล้อง — ใช้ device 0 แทน")
+        return "0"
+
+    print("\n📷  กล้องที่พบในระบบ:")
+    print("─" * 36)
+    for idx, name in cameras:
+        print(f"  [{idx}]  {name}")
+    print("─" * 36)
+
+    while True:
+        try:
+            choice = input("เลือกหมายเลขกล้อง: ").strip()
+            if choice in [idx for idx, _ in cameras]:
+                name = next(n for i, n in cameras if i == choice)
+                print(f"✅  ใช้กล้อง [{choice}] {name}\n")
+                return choice
+            print(f"    กรุณาพิมพ์หมายเลขที่มีในรายการ ({', '.join(i for i,_ in cameras)})")
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit(0)
+
 # ── args ─────────────────────────────────────────────────────────────────────
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--device", default="0")
-parser.add_argument("--list-devices", action="store_true")
+parser.add_argument("--device", default="__pick__",
+                    help="index ของกล้อง (ถ้าไม่ระบุจะให้เลือกในเมนู)")
 args = parser.parse_args()
 
-if args.list_devices:
-    import subprocess
-    subprocess.run(["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""])
-    raise SystemExit(0)
+device = pick_device(args.device)
 
 # ── objects ──────────────────────────────────────────────────────────────────
 
-capture = Capture(output_dir=str(SEGMENTS_DIR), segment_duration=2, device=args.device)
+capture = Capture(output_dir=str(SEGMENTS_DIR), segment_duration=2, device=device)
 buffer  = Buffer(segments_dir=str(SEGMENTS_DIR), segment_duration=2)
 
 _loop: asyncio.AbstractEventLoop | None = None
