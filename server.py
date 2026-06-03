@@ -125,6 +125,29 @@ async def list_cameras():
     return JSONResponse({"cameras": cameras})
 
 
+@app.get("/camera-formats")
+async def camera_formats(device: str = "0"):
+    """probe โหมดที่กล้องรองรับ (resolution + framerate)"""
+    proc = subprocess.run(
+        ["ffmpeg", "-f", "avfoundation", "-framerate", "9999", "-i", f"{device}:none"],
+        capture_output=True, text=True,
+    )
+    modes = []
+    seen = set()
+    for line in proc.stderr.splitlines():
+        m = re.search(r'(\d+)x(\d+)@\[[\d.]+\s+([\d.]+)\]fps', line)
+        if m:
+            w, h, fps = int(m.group(1)), int(m.group(2)), round(float(m.group(3)))
+            key = (w, h, fps)
+            if key not in seen:
+                seen.add(key)
+                modes.append({"width": w, "height": h, "fps": fps,
+                              "label": f"{w}×{h} · {fps}fps"})
+    # เรียงจากความละเอียดสูง→ต่ำ, fps สูง→ต่ำ
+    modes.sort(key=lambda x: (x["width"] * x["height"], x["fps"]), reverse=True)
+    return JSONResponse({"modes": modes})
+
+
 @app.websocket("/ws/preview")
 async def ws_preview(ws: WebSocket, device: str = "0"):
     global _preview_proc
@@ -169,20 +192,30 @@ async def ws_preview(ws: WebSocket, device: str = "0"):
 
 
 @app.post("/start")
-async def start_recording(device: str = "0", session: str = ""):
+async def start_recording(device: str = "0", session: str = "",
+                          framerate: int = 30, width: int = 1280, height: int = 720):
     global _preview_proc, _started, _session_name
     if _started:
         return JSONResponse({"status": "already_started"})
     if _preview_proc and _preview_proc.returncode is None:
         _preview_proc.terminate()
         await asyncio.sleep(1.0)
-    if _start_callback:
-        import threading
-        _session_name = session
-        threading.Thread(target=_start_callback, args=(device,), daemon=True).start()
+    if not _start_callback:
+        return JSONResponse({"status": "not_ready"}, status_code=503)
+
+    _session_name = session
+    # เรียก start แบบ sync เพื่อรอผลว่ากล้องเปิดได้จริงไหม
+    ok = await asyncio.get_running_loop().run_in_executor(
+        None, _start_callback, device, framerate, width, height
+    )
+    if ok:
         _started = True
         return JSONResponse({"status": "ok"})
-    return JSONResponse({"status": "not_ready"}, status_code=503)
+    return JSONResponse(
+        {"status": "camera_error",
+         "detail": "เปิดกล้องไม่ได้ — ลองเลือกความละเอียด/เฟรมเรทอื่น"},
+        status_code=502,
+    )
 
 
 @app.post("/stop")

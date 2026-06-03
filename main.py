@@ -36,11 +36,26 @@ _loop: asyncio.AbstractEventLoop | None = None
 
 # ── start callback (called by web setup wizard) ───────────────────────────────
 
-def _on_start(device: str):
+def _on_start(device: str, framerate: int = 30, width: int = 1280, height: int = 720) -> bool:
     global capture
-    capture = Capture(output_dir=str(SEGMENTS_DIR), segment_duration=2, device=device)
+    # ถ้ามี capture เก่าค้างอยู่ ปิดก่อน
+    if capture:
+        capture.stop()
+        capture = None
+    # ล้าง segment เก่า กันไม่ให้ footage เซสชันก่อนหลุดมาอัพ
+    for f in SEGMENTS_DIR.glob("*.ts"):
+        f.unlink(missing_ok=True)
+    (SEGMENTS_DIR / "playlist.m3u8").unlink(missing_ok=True)
+    capture = Capture(output_dir=str(SEGMENTS_DIR), segment_duration=2,
+                      device=device, framerate=framerate, width=width, height=height)
     capture.start()
-    print(f"[System] Recording started — device {device}", flush=True)
+    if not capture.wait_until_ready():
+        capture.stop()
+        capture = None
+        print(f"[System] เริ่มกล้องไม่สำเร็จ — device {device} @ {framerate}fps", flush=True)
+        return False
+    print(f"[System] Recording started — device {device} @ {framerate}fps", flush=True)
+    return True
 
 # ── replay trigger ────────────────────────────────────────────────────────────
 

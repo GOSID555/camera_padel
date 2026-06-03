@@ -135,6 +135,36 @@
     .camera-name { font-size: 0.95rem; font-weight: 600; }
     .camera-idx  { font-size: 0.75rem; color: #555; margin-top: 2px; }
 
+    /* ── format chips ── */
+    .format-section { display: none; flex-direction: column; gap: 10px; }
+    .format-title {
+      font-size: 0.75rem;
+      color: #666;
+      letter-spacing: 1px;
+    }
+    .format-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      padding: 8px 14px;
+      border: 2px solid #222;
+      border-radius: 8px;
+      background: #0d0d0d;
+      color: #aaa;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: #444; }
+    .chip.selected {
+      border-color: #facc15;
+      background: #1a1500;
+      color: #facc15;
+    }
+
     /* ── preview ── */
     .preview-box {
       width: 100%;
@@ -237,6 +267,11 @@
     <h2>🎥 เลือกกล้อง</h2>
     <div class="camera-list" id="camera-list"></div>
 
+    <div class="format-section" id="format-section">
+      <div class="format-title">⚙️ ความละเอียด / เฟรมเรท</div>
+      <div class="format-chips" id="format-chips"></div>
+    </div>
+
     <div class="preview-box" id="preview-box">
       <div class="preview-placeholder" id="preview-placeholder">เลือกกล้องเพื่อดูตัวอย่าง</div>
       <video id="preview-video" autoplay playsinline muted style="display:none"></video>
@@ -258,6 +293,7 @@
   <script>
     let selectedDevice  = null;
     let selectedName    = null;
+    let selectedFormat  = null;   // { width, height, fps }
     let currentStream   = null;
     let browserCameras  = [];
     const videoEl       = document.getElementById('preview-video');
@@ -333,8 +369,50 @@
       selectedDevice = index;
       selectedName   = name;
       document.getElementById('err-2').style.display = 'none';
-      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-start').disabled = true;
+      await loadFormats(index);
       await loadPreview(name);
+    }
+
+    // ── โหลดความละเอียด/เฟรมเรทที่กล้องรองรับ ───────────────────────────────
+    async function loadFormats(device) {
+      const section = document.getElementById('format-section');
+      const chips   = document.getElementById('format-chips');
+      chips.innerHTML = '<span style="color:#555;font-size:0.8rem">⏳ กำลังตรวจสอบ...</span>';
+      section.style.display = 'flex';
+      selectedFormat = null;
+
+      try {
+        const res  = await fetch(`/camera-formats?device=${device}`);
+        const data = await res.json();
+
+        if (!data.modes.length) {
+          // กล้องไม่บอกโหมด — ใช้ค่า default ปลอดภัย
+          selectedFormat = { width: 1280, height: 720, fps: 30 };
+          section.style.display = 'none';
+          document.getElementById('btn-start').disabled = false;
+          return;
+        }
+
+        chips.innerHTML = '';
+        data.modes.forEach((mode, i) => {
+          const chip = document.createElement('div');
+          chip.className = 'chip';
+          chip.textContent = mode.label;
+          chip.onclick = () => {
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            selectedFormat = { width: mode.width, height: mode.height, fps: mode.fps };
+            document.getElementById('btn-start').disabled = false;
+          };
+          chips.appendChild(chip);
+          if (i === 0) chip.click();  // auto-select ตัวแรก (ละเอียดสุด)
+        });
+      } catch {
+        selectedFormat = { width: 1280, height: 720, fps: 30 };
+        section.style.display = 'none';
+        document.getElementById('btn-start').disabled = false;
+      }
     }
 
     async function loadPreview(cameraName) {
@@ -385,27 +463,38 @@
         currentStream = null;
       }
 
+      const fmt = selectedFormat || { width: 1280, height: 720, fps: 30 };
       try {
         const session = document.getElementById('session-name').value.trim() ||
                         new Date().toLocaleDateString('th-TH');
-        const res = await fetch(
-          `/start?device=${selectedDevice}&session=${encodeURIComponent(session)}`,
-          { method: 'POST' }
-        );
-        if (!res.ok) throw new Error();
+        const params = new URLSearchParams({
+          device: selectedDevice,
+          session,
+          framerate: fmt.fps,
+          width: fmt.width,
+          height: fmt.height,
+        });
+        const res = await fetch(`/start?${params}`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'เริ่มระบบไม่สำเร็จ');
+        }
 
         // เซฟข้อมูลกล้องสำหรับ dashboard
         sessionStorage.setItem('camName',  selectedName);
         sessionStorage.setItem('camIndex', selectedDevice);
         sessionStorage.setItem('session',  session);
 
-        document.getElementById('done-cam').textContent = `${selectedName} [${selectedDevice}]`;
+        document.getElementById('done-cam').textContent =
+          `${selectedName} [${selectedDevice}] · ${fmt.width}×${fmt.height}@${fmt.fps}fps`;
         setStep(3);
         setTimeout(() => location.href = '/dashboard', 1500);
-      } catch {
+      } catch (e) {
         btn.disabled = false;
         btn.textContent = '▶ เริ่มระบบ';
-        document.getElementById('err-2').style.display = 'block';
+        const chip = document.getElementById('err-2');
+        chip.textContent = '⚠️ ' + (e.message || 'เปิดกล้องไม่ได้ — ลองโหมดอื่น');
+        chip.style.display = 'block';
       }
     }
   </script>
