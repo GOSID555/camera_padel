@@ -89,46 +89,47 @@ async def list_cameras():
     return JSONResponse({"cameras": cameras})
 
 
-@app.get("/preview")
-async def preview(device: str = "0"):
+@app.websocket("/ws/preview")
+async def ws_preview(ws: WebSocket, device: str = "0"):
     global _preview_proc
-
-    async def generate():
-        global _preview_proc
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg",
-            "-f", "avfoundation", "-framerate", "10", "-i", f"{device}:none",
-            "-f", "mjpeg", "-q:v", "4", "pipe:1",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        _preview_proc = proc
-        buf = bytearray()
-        try:
+    await ws.accept()
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg",
+        "-f", "avfoundation", "-framerate", "30", "-i", f"{device}:none",
+        "-vf", "scale=640:360",
+        "-f", "mjpeg", "-q:v", "6", "pipe:1",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    _preview_proc = proc
+    buf = bytearray()
+    try:
+        while True:
+            chunk = await proc.stdout.read(65536)
+            if not chunk:
+                break
+            buf.extend(chunk)
             while True:
-                chunk = await proc.stdout.read(65536)
-                if not chunk:
+                start = buf.find(b'\xff\xd8')
+                if start == -1:
+                    buf.clear()
                     break
-                buf.extend(chunk)
-                while True:
-                    start = buf.find(b'\xff\xd8')
-                    if start == -1:
-                        buf.clear()
-                        break
-                    end = buf.find(b'\xff\xd9', start + 2)
-                    if end == -1:
-                        del buf[:start]
-                        break
-                    frame = bytes(buf[start:end + 2])
-                    del buf[:end + 2]
-                    yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
-                           + frame + b"\r\n")
-        finally:
-            if proc.returncode is None:
-                proc.terminate()
-            _preview_proc = None
-
-    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
+                end = buf.find(b'\xff\xd9', start + 2)
+                if end == -1:
+                    del buf[:start]
+                    break
+                frame = bytes(buf[start:end + 2])
+                del buf[:end + 2]
+                try:
+                    await ws.send_bytes(frame)
+                except Exception:
+                    return
+    except Exception:
+        pass
+    finally:
+        if proc.returncode is None:
+            proc.terminate()
+        _preview_proc = None
 
 
 @app.post("/start")

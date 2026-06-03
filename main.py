@@ -101,7 +101,8 @@ async def main():
     try:
         await server.serve()
     finally:
-        capture.stop()
+        if capture:
+            capture.stop()
 
 
 if __name__ == "__main__":
