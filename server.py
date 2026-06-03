@@ -125,13 +125,15 @@ async def list_cameras():
     return JSONResponse({"cameras": cameras})
 
 
-@app.get("/camera-formats")
-async def camera_formats(device: str = "0"):
-    """probe โหมดที่กล้องรองรับ (resolution + framerate)"""
-    proc = subprocess.run(
-        ["ffmpeg", "-f", "avfoundation", "-framerate", "9999", "-i", f"{device}:none"],
-        capture_output=True, text=True,
-    )
+def _probe_camera_modes(device: str) -> list[dict]:
+    """รัน ffmpeg เพื่อ probe โหมดที่กล้องรองรับ (blocking — เรียกใน executor)"""
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", "-f", "avfoundation", "-framerate", "9999", "-i", f"{device}:none"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return []
     modes = []
     seen = set()
     for line in proc.stderr.splitlines():
@@ -143,8 +145,16 @@ async def camera_formats(device: str = "0"):
                 seen.add(key)
                 modes.append({"width": w, "height": h, "fps": fps,
                               "label": f"{w}×{h} · {fps}fps"})
-    # เรียงจากความละเอียดสูง→ต่ำ, fps สูง→ต่ำ
     modes.sort(key=lambda x: (x["width"] * x["height"], x["fps"]), reverse=True)
+    return modes
+
+
+@app.get("/camera-formats")
+async def camera_formats(device: str = "0"):
+    """probe โหมดที่กล้องรองรับ — รันใน thread เพื่อไม่ block event loop"""
+    modes = await asyncio.get_running_loop().run_in_executor(
+        None, _probe_camera_modes, device
+    )
     return JSONResponse({"modes": modes})
 
 
