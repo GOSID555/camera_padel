@@ -131,6 +131,14 @@
 
   <h1>🎾 Padel Replay</h1>
 
+  <!-- แสดง user ที่กำลังใช้งาน / ให้กรอกถ้ายังไม่มี -->
+  <div id="user-box" style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#888;">
+    <span>User:</span>
+    <input id="uid-input" placeholder="ใส่ User ID เช่น USER123"
+      style="background:#111; border:1px solid #333; color:#facc15; border-radius:8px;
+             padding:8px 12px; font-size:0.9rem; font-weight:700; outline:none; width:180px; text-align:center;" />
+  </div>
+
   <button id="btn-replay" onclick="triggerReplay()">
     <span class="icon">⚡</span>
     <span id="btn-label">REPLAY</span>
@@ -161,8 +169,16 @@
 
     // ── อ่าน uid / court จาก URL (แอปฝังมาตอนเปิด operator) ───────────────────
     const qs    = new URLSearchParams(location.search);
-    const uid   = qs.get('uid')   || '';
-    const court = qs.get('court') || '';
+    const court = qs.get('court') || 'A';
+
+    // uid: ใช้จาก URL ก่อน, ถ้าไม่มีให้กรอกในช่อง (จำไว้ใน localStorage)
+    const uidInput = document.getElementById('uid-input');
+    uidInput.value = qs.get('uid') || localStorage.getItem('lastUid') || '';
+    function getUid() {
+      const v = uidInput.value.trim();
+      if (v) localStorage.setItem('lastUid', v);
+      return v;
+    }
 
     // ── WebSocket (รับ event replay_ready เพื่ออัป counter) ─────────────────
     const ws = new WebSocket(`ws://${location.host}/ws`);
@@ -187,6 +203,18 @@
     // ── Trigger ──────────────────────────────────────────────────────────────
     async function triggerReplay() {
       if (busy) return;
+
+      const uid = getUid();
+      if (!uid) {
+        // ไม่มี user → เตือนแทนที่จะส่งเงียบๆ แล้วล้มเหลว
+        uidInput.style.borderColor = '#ef4444';
+        uidInput.focus();
+        label.textContent = 'ใส่ User ID ก่อน';
+        btn.classList.add('error');
+        setTimeout(reset, 1800);
+        return;
+      }
+      uidInput.style.borderColor = '#333';
       busy = true;
 
       btn.classList.add('pressing');
