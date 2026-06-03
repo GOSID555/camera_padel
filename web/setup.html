@@ -332,7 +332,6 @@
       const placeholder = document.getElementById('preview-placeholder');
       const label       = document.getElementById('preview-label');
 
-      // หยุด stream เก่า
       if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
@@ -344,14 +343,15 @@
       placeholder.style.display = 'block';
 
       try {
-        // หา browser camera ที่ชื่อใกล้เคียงกัน
         const keyword = cameraName.toLowerCase().split(' ')[0];
         const match   = browserCameras.find(d => d.label.toLowerCase().includes(keyword));
         const constraints = match
           ? { video: { deviceId: { exact: match.deviceId } } }
           : { video: true };
 
-        currentStream   = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        // บันทึก deviceId ไว้ส่งต่อให้ dashboard
+        if (match) sessionStorage.setItem('camDevId', match.deviceId);
         videoEl.srcObject = currentStream;
         await videoEl.play();
 
@@ -371,7 +371,6 @@
       btn.disabled = true;
       btn.textContent = '⏳ กำลังเริ่ม...';
 
-      // ปล่อยกล้องจาก browser ก่อน เพื่อให้ ffmpeg เข้าใช้ได้
       if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
@@ -380,9 +379,14 @@
       try {
         const res = await fetch(`/start?device=${selectedDevice}`, { method: 'POST' });
         if (!res.ok) throw new Error();
-        document.getElementById('done-cam').textContent =
-          `${selectedName} [${selectedDevice}]`;
+
+        // เซฟข้อมูลกล้องสำหรับ dashboard
+        sessionStorage.setItem('camName',  selectedName);
+        sessionStorage.setItem('camIndex', selectedDevice);
+
+        document.getElementById('done-cam').textContent = `${selectedName} [${selectedDevice}]`;
         setStep(3);
+        setTimeout(() => location.href = '/dashboard', 1500);
       } catch {
         btn.disabled = false;
         btn.textContent = '▶ เริ่มระบบ';

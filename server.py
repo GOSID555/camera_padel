@@ -63,6 +63,24 @@ async def setup():
     return FileResponse("web/setup.html")
 
 
+@app.get("/dashboard")
+async def dashboard():
+    return FileResponse("web/dashboard.html")
+
+
+@app.get("/info")
+async def info():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "localhost"
+    return JSONResponse({"ip": ip, "port": 8000})
+
+
 @app.get("/operator")
 async def operator():
     return FileResponse("web/operator.html")
