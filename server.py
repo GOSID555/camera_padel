@@ -68,6 +68,16 @@ async def dashboard():
     return FileResponse("web/dashboard.html")
 
 
+@app.get("/status")
+async def status():
+    return JSONResponse({"started": _started})
+
+
+@app.get("/qrcode.min.js")
+async def qrcode_js():
+    return FileResponse("web/qrcode.min.js", media_type="application/javascript")
+
+
 @app.get("/info")
 async def info():
     import socket

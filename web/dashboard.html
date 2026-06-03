@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Padel Replay</title>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -221,6 +221,14 @@
 </head>
 <body>
 
+  <!-- แสดงเมื่อยังไม่ start -->
+  <div id="setup-banner" style="display:none; background:#1a0f00; border-bottom:1px solid #facc1555;
+    padding:10px 20px; text-align:center; font-size:0.8rem; color:#facc15;">
+    ⚠️ ระบบยังไม่เริ่มอัด —
+    <a href="/setup" style="color:#facc15; font-weight:700; text-decoration:underline;">ไปหน้า Setup</a>
+    เพื่อเลือกกล้องและเริ่มระบบ
+  </div>
+
   <header>
     <div class="logo">🎾 KROSS PADEL</div>
     <div class="header-right">
@@ -250,7 +258,7 @@
       <div class="panel-title">📱 Remote Control</div>
 
       <div class="qr-wrap">
-        <canvas id="qr-canvas"></canvas>
+        <div id="qr-canvas"></div>
       </div>
       <div class="qr-sub">สแกนเพื่อควบคุม<br>จากมือถือ</div>
       <div class="qr-url" id="qr-url"></div>
@@ -302,12 +310,18 @@
         url = `${location.origin}/operator`;
       }
       document.getElementById('qr-url').textContent = url;
-      QRCode.toCanvas(document.getElementById('qr-canvas'), url, {
-        width: 200, margin: 0,
-        color: { dark: '#000000', light: '#ffffff' },
+      new QRCode(document.getElementById('qr-canvas'), {
+        text: url, width: 200, height: 200,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
       });
     }
     initQR();
+
+    // ── ตรวจสอบว่า recording เริ่มแล้วหรือยัง ───────────────────────────────
+    fetch('/status').then(r => r.json()).then(({ started }) => {
+      if (!started) document.getElementById('setup-banner').style.display = 'block';
+    });
 
     // ── Camera preview (getUserMedia) ────────────────────────────────────────
     async function startPreview() {
@@ -332,13 +346,15 @@
     const clipNum = document.getElementById('clip-num');
     let clips = 0;
 
+    let reconnectTimer = null;
     function connect() {
       const ws = new WebSocket(`ws://${location.host}/ws`);
+      let pingTimer = null;
 
       ws.onopen = () => {
-        wsDot.className   = 'ws-dot on';
+        wsDot.className     = 'ws-dot on';
         wsLabel.textContent = 'เชื่อมต่อแล้ว';
-        setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
+        pingTimer = setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
       };
 
       ws.onmessage = ({ data }) => {
@@ -346,16 +362,20 @@
         if (msg.event === 'replay_ready') {
           clips++;
           clipNum.textContent = clips;
-          // flash
           clipNum.style.color = '#22c55e';
           setTimeout(() => clipNum.style.color = '#facc15', 600);
         }
       };
 
-      ws.onclose = ws.onerror = () => {
-        wsDot.className    = 'ws-dot';
+      ws.onerror = () => {}; // onclose จะจัดการต่อ
+
+      ws.onclose = () => {
+        clearInterval(pingTimer);
+        wsDot.className     = 'ws-dot';
         wsLabel.textContent = 'ขาดการเชื่อมต่อ...';
-        setTimeout(connect, 3000);
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 3000);
+        }
       };
     }
     connect();
