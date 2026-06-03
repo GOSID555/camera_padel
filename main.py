@@ -8,7 +8,7 @@ import uvicorn
 
 from buffer import Buffer
 from capture import Capture
-from server import app, broadcast, set_trigger_callback, set_stop_callback, set_start_callback
+from server import app, broadcast, set_trigger_callback, set_stop_callback, set_start_callback, get_session_name
 
 # ── paths (absolute so threads never have CWD issues) ────────────────────────
 
@@ -46,8 +46,9 @@ def _on_start(device: str):
 
 def _upload_to_drive(local_path: str):
     import subprocess, datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    remote = f"replay_kross:KROSS PADEL/replays/replay_{timestamp}.mp4"
+    timestamp = datetime.datetime.now().strftime("%H%M%S")
+    session   = get_session_name() or datetime.datetime.now().strftime("%Y-%m-%d")
+    remote    = f"replay_kross:KROSS PADEL/{session}/replay_{timestamp}.mp4"
     result = subprocess.run(
         ["rclone", "copyto", local_path, remote],
         capture_output=True,

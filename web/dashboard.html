@@ -274,6 +274,7 @@
 
   <footer>
     <div class="stat">กล้อง:<strong id="stat-cam">—</strong></div>
+    <div class="stat">เซสชัน:<strong id="stat-session">—</strong></div>
     <div class="stat">IP:<strong id="stat-ip">—</strong></div>
     <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
       <div class="ws-dot" id="ws-dot"></div>
@@ -283,12 +284,14 @@
 
   <script>
     // ── Camera info from setup ───────────────────────────────────────────────
-    const camName  = sessionStorage.getItem('camName')  || 'CAM';
-    const camIndex = sessionStorage.getItem('camIndex') || '0';
-    const camDevId = sessionStorage.getItem('camDevId') || null;
+    const camName  = sessionStorage.getItem('camName')   || 'CAM';
+    const camIndex = sessionStorage.getItem('camIndex')  || '0';
+    const camDevId = sessionStorage.getItem('camDevId')  || null;
+    const session  = sessionStorage.getItem('session')   || '';
 
     document.getElementById('stat-cam').textContent  = `${camName} [${camIndex}]`;
     document.getElementById('cam-label').textContent = `CAM ${camIndex}  —  ${camName}`;
+    if (session) document.getElementById('stat-session').textContent = session;
 
     // ── Clock ────────────────────────────────────────────────────────────────
     function tick() {

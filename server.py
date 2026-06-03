@@ -15,6 +15,7 @@ _trigger_callback: Callable | None = None
 _stop_callback: Callable | None = None
 _start_callback: Callable | None = None
 _started = False
+_session_name: str = ""
 _preview_proc: asyncio.subprocess.Process | None = None
 
 
@@ -31,6 +32,10 @@ def set_stop_callback(fn: Callable):
 def set_start_callback(fn: Callable):
     global _start_callback
     _start_callback = fn
+
+
+def get_session_name() -> str:
+    return _session_name
 
 # ชุดของ WebSocket clients ที่เชื่อมต่ออยู่
 _clients: set[WebSocket] = set()
@@ -164,8 +169,8 @@ async def ws_preview(ws: WebSocket, device: str = "0"):
 
 
 @app.post("/start")
-async def start_recording(device: str = "0"):
-    global _preview_proc, _started
+async def start_recording(device: str = "0", session: str = ""):
+    global _preview_proc, _started, _session_name
     if _started:
         return JSONResponse({"status": "already_started"})
     if _preview_proc and _preview_proc.returncode is None:
@@ -173,6 +178,7 @@ async def start_recording(device: str = "0"):
         await asyncio.sleep(1.0)
     if _start_callback:
         import threading
+        _session_name = session
         threading.Thread(target=_start_callback, args=(device,), daemon=True).start()
         _started = True
         return JSONResponse({"status": "ok"})

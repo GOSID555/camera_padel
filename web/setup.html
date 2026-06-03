@@ -218,7 +218,16 @@
   <!-- Step 1: ค้นหากล้อง -->
   <div class="card" id="step-1">
     <h2>📷 เชื่อมต่อกล้อง</h2>
-    <p>ต่อสาย USB กล้องให้เรียบร้อย แล้วกดค้นหา</p>
+    <p>ตั้งชื่อเซสชัน แล้วต่อสาย USB กล้องให้เรียบร้อย</p>
+
+    <input id="session-name" type="text" placeholder="เช่น Court A · Match 1"
+      maxlength="60"
+      style="width:100%; padding:14px 16px; border-radius:10px; border:2px solid #333;
+             background:#0d0d0d; color:#f0f0f0; font-size:1rem; outline:none;
+             transition:border-color 0.2s;"
+      onfocus="this.style.borderColor='#facc15'"
+      onblur="this.style.borderColor='#333'" />
+
     <div class="error-chip" id="err-1">ไม่พบกล้อง — ลองเสียบสายใหม่แล้วค้นหาอีกครั้ง</div>
     <button class="btn" id="btn-scan" onclick="scanCameras()">🔍 ค้นหากล้อง</button>
   </div>
@@ -377,12 +386,18 @@
       }
 
       try {
-        const res = await fetch(`/start?device=${selectedDevice}`, { method: 'POST' });
+        const session = document.getElementById('session-name').value.trim() ||
+                        new Date().toLocaleDateString('th-TH');
+        const res = await fetch(
+          `/start?device=${selectedDevice}&session=${encodeURIComponent(session)}`,
+          { method: 'POST' }
+        );
         if (!res.ok) throw new Error();
 
         // เซฟข้อมูลกล้องสำหรับ dashboard
         sessionStorage.setItem('camName',  selectedName);
         sessionStorage.setItem('camIndex', selectedDevice);
+        sessionStorage.setItem('session',  session);
 
         document.getElementById('done-cam').textContent = `${selectedName} [${selectedDevice}]`;
         setStep(3);
