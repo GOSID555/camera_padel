@@ -238,10 +238,10 @@ async def stop_recording():
 
 
 @app.post("/trigger")
-async def trigger_replay():
+async def trigger_replay(uid: str = "", court: str = ""):
     if _trigger_callback:
-        import asyncio, threading
-        t = threading.Thread(target=_trigger_callback, daemon=True)
+        import threading
+        t = threading.Thread(target=_trigger_callback, args=(uid, court), daemon=True)
         t.start()
         return JSONResponse({"status": "ok"})
     return JSONResponse({"status": "not_ready"}, status_code=503)

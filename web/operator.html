@@ -159,6 +159,11 @@
     let clipCount = 0;
     let busy = false;
 
+    // ── อ่าน uid / court จาก URL (แอปฝังมาตอนเปิด operator) ───────────────────
+    const qs    = new URLSearchParams(location.search);
+    const uid   = qs.get('uid')   || '';
+    const court = qs.get('court') || '';
+
     // ── WebSocket (รับ event replay_ready เพื่ออัป counter) ─────────────────
     const ws = new WebSocket(`ws://${location.host}/ws`);
 
@@ -188,7 +193,8 @@
       label.textContent = 'กำลังตัด...';
 
       try {
-        const res = await fetch('/trigger', { method: 'POST' });
+        const params = new URLSearchParams({ uid, court });
+        const res = await fetch(`/trigger?${params}`, { method: 'POST' });
         if (res.ok) {
           btn.classList.remove('pressing');
           btn.classList.add('success');

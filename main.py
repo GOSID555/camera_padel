@@ -20,6 +20,14 @@ REPLAY_PATH = WEB_DIR / "replay.mp4"
 SEGMENTS_DIR.mkdir(exist_ok=True)
 WEB_DIR.mkdir(exist_ok=True)
 
+# ── cloud config (ตั้งผ่าน env var) ──────────────────────────────────────────
+# CLOUD_API_URL : endpoint ของแอปบน cloud ที่รับคลิป เช่น https://api.xxx.com/clips
+# CLOUD_API_KEY : api key ของเครื่องกล้องนี้ (ส่งเป็น Bearer token)
+# COURT_ID      : รหัสคอร์ทเริ่มต้น (ถ้า operator ไม่ส่ง court มา)
+CLOUD_API_URL = os.environ.get("CLOUD_API_URL", "")
+CLOUD_API_KEY = os.environ.get("CLOUD_API_KEY", "")
+COURT_ID      = os.environ.get("COURT_ID", "A")
+
 # ── args ─────────────────────────────────────────────────────────────────────
 
 parser = argparse.ArgumentParser()
@@ -59,6 +67,27 @@ def _on_start(device: str, framerate: int = 30, width: int = 1280, height: int =
 
 # ── replay trigger ────────────────────────────────────────────────────────────
 
+def _send_to_cloud(local_path: str, uid: str, court: str):
+    """POST คลิป + userId ไปแอปบน cloud (multipart)"""
+    import httpx, datetime
+    captured_at = datetime.datetime.now().isoformat()
+    try:
+        with open(local_path, "rb") as f:
+            files   = {"file": ("replay.mp4", f, "video/mp4")}
+            data    = {"userId": uid, "court": court or COURT_ID,
+                       "capturedAt": captured_at}
+            headers = {"Authorization": f"Bearer {CLOUD_API_KEY}"} if CLOUD_API_KEY else {}
+            r = httpx.post(CLOUD_API_URL, data=data, files=files,
+                           headers=headers, timeout=30)
+        if r.status_code // 100 == 2:
+            print(f"[Cloud] ส่งคลิปสำเร็จ → user={uid or '-'} court={court or COURT_ID} "
+                  f"({r.status_code})", flush=True)
+        else:
+            print(f"[Cloud] ส่งไม่สำเร็จ {r.status_code}: {r.text[:200]}", flush=True)
+    except Exception as e:
+        print(f"[Cloud] error: {e}", flush=True)
+
+
 def _upload_to_drive(local_path: str):
     import subprocess, datetime
     timestamp = datetime.datetime.now().strftime("%H%M%S")
@@ -74,11 +103,11 @@ def _upload_to_drive(local_path: str):
         print(f"[Drive] Upload failed: {result.stderr.decode()[:200]}", flush=True)
 
 
-def _do_replay():
+def _do_replay(uid: str = "", court: str = ""):
     if capture is None:
         print("[Trigger] ระบบยังไม่เริ่ม — ไปที่ /setup ก่อน", flush=True)
         return
-    print("[Trigger] Extracting last 5s...", flush=True)
+    print(f"[Trigger] Extracting last 5s... (user={uid or '-'})", flush=True)
     try:
         clip = buffer.extract_clip(duration=5, output_path=str(REPLAY_PATH))
     except Exception as e:
@@ -90,7 +119,11 @@ def _do_replay():
             _loop,
         )
         print("[Trigger] Done — broadcast sent", flush=True)
-        _upload_to_drive(clip)
+        # ถ้าตั้ง CLOUD_API_URL ไว้ → ส่งเข้าแอป cloud, ไม่งั้น fallback Drive
+        if CLOUD_API_URL:
+            _send_to_cloud(clip, uid, court)
+        else:
+            _upload_to_drive(clip)
     else:
         print("[Trigger] extract_clip returned None", flush=True)
 
