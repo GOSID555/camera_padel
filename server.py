@@ -208,7 +208,8 @@ async def trigger_replay():
 async def get_replay():
     path = "web/replay.mp4"
     if os.path.exists(path):
-        return FileResponse(path, media_type="video/mp4")
+        return FileResponse(path, media_type="video/mp4",
+                            headers={"Cache-Control": "no-store"})
     return HTMLResponse("<h3>No replay available yet</h3>", status_code=404)
 
 
