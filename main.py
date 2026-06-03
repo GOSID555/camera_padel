@@ -96,7 +96,7 @@ async def main():
     print(f"  Web : http://localhost:8000", flush=True)
     print("=" * 50, flush=True)
 
-    config = uvicorn.Config(app, host="0.0.0.0", port=80, log_level="warning")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="warning")
     server = uvicorn.Server(config)
     try:
         await server.serve()

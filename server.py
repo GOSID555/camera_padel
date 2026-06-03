@@ -55,7 +55,10 @@ async def websocket_endpoint(ws: WebSocket):
 
 @app.get("/")
 async def index():
-    return FileResponse("web/index.html")
+    from fastapi.responses import RedirectResponse
+    if _started:
+        return RedirectResponse("/dashboard")
+    return RedirectResponse("/setup")
 
 
 @app.get("/setup")
