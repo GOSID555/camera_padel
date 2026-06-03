@@ -231,6 +231,9 @@ async def start_recording(device: str = "0", session: str = "",
 @app.post("/stop")
 async def stop_recording():
     if _stop_callback:
+        # บอก client ทุกเครื่องให้ปล่อยกล้อง + ขึ้นจอหยุด ก่อน process จะตาย
+        await broadcast({"event": "system_stopped"})
+        await asyncio.sleep(0.4)
         import threading
         threading.Thread(target=_stop_callback, daemon=True).start()
         return JSONResponse({"status": "stopped"})

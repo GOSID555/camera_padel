@@ -327,14 +327,15 @@
     });
 
     // ── Camera preview (getUserMedia) ────────────────────────────────────────
+    let camStream = null;
     async function startPreview() {
       const video = document.getElementById('cam-video');
       try {
         const constraints = camDevId
           ? { video: { deviceId: { exact: camDevId } } }
           : { video: true };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
+        camStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = camStream;
       } catch {
         video.style.display = 'none';
         document.getElementById('cam-wrap').innerHTML =
@@ -342,6 +343,27 @@
       }
     }
     startPreview();
+
+    // ── ปล่อยกล้อง + ขึ้นจอ "หยุดแล้ว" (เรียกตอนระบบถูกสั่งหยุด) ─────────────
+    let systemStopped = false;
+    function onSystemStopped() {
+      systemStopped = true;
+      // ปล่อยกล้องในเบราว์เซอร์ → ไฟกล้องดับ
+      if (camStream) {
+        camStream.getTracks().forEach(t => t.stop());
+        camStream = null;
+      }
+      document.body.innerHTML =
+        '<div style="height:100dvh;display:flex;flex-direction:column;' +
+        'align-items:center;justify-content:center;gap:18px;color:#666;' +
+        'font-family:Helvetica Neue,sans-serif;background:#080808;">' +
+        '<div style="font-size:3rem">⏹</div>' +
+        '<div style="font-size:1.2rem;font-weight:700;color:#aaa">ระบบหยุดทำงานแล้ว</div>' +
+        '<div style="font-size:0.85rem;color:#555">ไฟกล้องดับแล้ว ปิดแท็บนี้ได้เลย</div>' +
+        '<a href="/setup" style="margin-top:10px;padding:12px 24px;border:2px solid #facc15;' +
+        'border-radius:10px;color:#facc15;text-decoration:none;font-weight:700">เริ่มใหม่ →</a>' +
+        '</div>';
+    }
 
     // ── WebSocket: clip counter + connection status ───────────────────────────
     const wsDot   = document.getElementById('ws-dot');
@@ -367,6 +389,8 @@
           clipNum.textContent = clips;
           clipNum.style.color = '#22c55e';
           setTimeout(() => clipNum.style.color = '#facc15', 600);
+        } else if (msg.event === 'system_stopped') {
+          onSystemStopped();
         }
       };
 
@@ -374,6 +398,7 @@
 
       ws.onclose = () => {
         clearInterval(pingTimer);
+        if (systemStopped) return;   // ตั้งใจหยุด ไม่ต้อง reconnect
         wsDot.className     = 'ws-dot';
         wsLabel.textContent = 'ขาดการเชื่อมต่อ...';
         if (!reconnectTimer) {
