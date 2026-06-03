@@ -96,7 +96,7 @@ async def ws_preview(ws: WebSocket, device: str = "0"):
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg",
         "-f", "avfoundation", "-framerate", "30", "-i", f"{device}:none",
-        "-vf", "scale=640:360",
+        "-vf", "scale=640:360,fps=15",
         "-f", "mjpeg", "-q:v", "6", "pipe:1",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
