@@ -3,12 +3,61 @@ import json
 import os
 import re
 import subprocess
+import sys
 from typing import Callable
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 
 app = FastAPI()
+
+# ── platform abstraction (macOS avfoundation / Windows dshow) ─────────────────
+# macOS : device = index ("0", "1"...)   ใช้ avfoundation
+# Windows: device = ชื่อกล้อง            ใช้ dshow (video=ชื่อ)
+_IS_WINDOWS = sys.platform.startswith("win")
+
+
+def _camera_input_args(device: str, fps: str) -> list[str]:
+    """ffmpeg input flags สำหรับเปิดกล้อง ตาม OS"""
+    if _IS_WINDOWS:
+        return ["-f", "dshow", "-framerate", fps, "-i", f"video={device}"]
+    return ["-f", "avfoundation", "-framerate", fps, "-i", f"{device}:none"]
+
+
+def _list_cameras() -> list[dict]:
+    """คืน list ของ {index, name} — บน Windows index = ชื่อกล้อง"""
+    if _IS_WINDOWS:
+        result = subprocess.run(
+            ["ffmpeg", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
+            capture_output=True, text=True, errors="ignore",
+        )
+        cameras = []
+        for line in result.stderr.splitlines():
+            # dshow แสดง:  "Integrated Camera" (video)
+            m = re.search(r'"(.+?)"\s*\(video\)', line)
+            if m:
+                name = m.group(1)
+                cameras.append({"index": name, "name": name})
+        return cameras
+
+    # macOS — avfoundation ใช้ index
+    result = subprocess.run(
+        ["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+        capture_output=True, text=True,
+    )
+    cameras = []
+    in_video = False
+    for line in result.stderr.splitlines():
+        if "AVFoundation video devices" in line:
+            in_video = True
+            continue
+        if "AVFoundation audio devices" in line:
+            break
+        if in_video:
+            m = re.search(r'\[(\d+)\]\s+(.+)', line)
+            if m:
+                cameras.append({"index": m.group(1), "name": m.group(2).strip()})
+    return cameras
 
 # set by main.py after startup
 _trigger_callback: Callable | None = None
@@ -106,38 +155,31 @@ async def operator():
 
 @app.get("/cameras")
 async def list_cameras():
-    result = subprocess.run(
-        ["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
-        capture_output=True, text=True,
-    )
-    cameras = []
-    in_video = False
-    for line in result.stderr.splitlines():
-        if "AVFoundation video devices" in line:
-            in_video = True
-            continue
-        if "AVFoundation audio devices" in line:
-            break
-        if in_video:
-            m = re.search(r'\[(\d+)\]\s+(.+)', line)
-            if m:
-                cameras.append({"index": m.group(1), "name": m.group(2).strip()})
+    cameras = await asyncio.get_running_loop().run_in_executor(None, _list_cameras)
     return JSONResponse({"cameras": cameras})
 
 
 def _probe_camera_modes(device: str) -> list[dict]:
     """รัน ffmpeg เพื่อ probe โหมดที่กล้องรองรับ (blocking — เรียกใน executor)"""
+    if _IS_WINDOWS:
+        cmd = ["ffmpeg", "-f", "dshow", "-list_options", "true", "-i", f"video={device}"]
+        # dshow แสดง: ... max s=1280x720 fps=30
+        pattern = re.compile(r'max s=(\d+)x(\d+) fps=([\d.]+)')
+    else:
+        cmd = ["ffmpeg", "-f", "avfoundation", "-framerate", "9999", "-i", f"{device}:none"]
+        # avfoundation แสดง: 1280x720@[25.0 25.0]fps
+        pattern = re.compile(r'(\d+)x(\d+)@\[[\d.]+\s+([\d.]+)\]fps')
+
     try:
-        proc = subprocess.run(
-            ["ffmpeg", "-f", "avfoundation", "-framerate", "9999", "-i", f"{device}:none"],
-            capture_output=True, text=True, timeout=5,
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5,
+                              errors="ignore")
     except subprocess.TimeoutExpired:
         return []
+
     modes = []
     seen = set()
     for line in proc.stderr.splitlines():
-        m = re.search(r'(\d+)x(\d+)@\[[\d.]+\s+([\d.]+)\]fps', line)
+        m = pattern.search(line)
         if m:
             w, h, fps = int(m.group(1)), int(m.group(2)), round(float(m.group(3)))
             key = (w, h, fps)
@@ -164,7 +206,7 @@ async def ws_preview(ws: WebSocket, device: str = "0"):
     await ws.accept()
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg",
-        "-f", "avfoundation", "-framerate", "30", "-i", f"{device}:none",
+        *_camera_input_args(device, "30"),
         "-vf", "scale=640:360,fps=15",
         "-f", "mjpeg", "-q:v", "6", "pipe:1",
         stdout=asyncio.subprocess.PIPE,

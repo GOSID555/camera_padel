@@ -20,6 +20,16 @@ The web UI is served at `http://localhost:8000`. Press **SPACE** on the terminal
 
 **Dependency:** `ffmpeg` must be installed and on `$PATH` (used for both recording and clip extraction).
 
+### Windows
+
+```powershell
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python main.py
+```
+
+Install `ffmpeg` and add it to `PATH`. Camera capture uses DirectShow (`dshow`) — the setup wizard at `http://localhost:8000` lists cameras by **name** and works the same as on macOS.
+
 ### Mac mini M4 (USB webcam)
 
 Mac mini has no built-in camera, so the USB webcam is likely not device `0`. Find the correct index first:
@@ -70,4 +80,5 @@ Single-page UI: connects to `/ws`, listens for `replay_ready`, then loads `/repl
 
 - The last `.ts` segment is always skipped during clip extraction because `ffmpeg` may still be writing it.
 - `web/replay.mp4` is overwritten in-place on every replay trigger; the browser cache-busts with a query param.
-- The system is macOS-only (`avfoundation`). Porting to Linux requires switching to `-f v4l2 -i /dev/video0`.
+- **Cross-platform capture:** macOS uses `avfoundation` (device = index "0"); Windows uses `dshow` (device = camera **name**, e.g. `video=Integrated Camera`). Both `capture.py` and the camera endpoints in `server.py` (`/cameras`, `/camera-formats`, `/ws/preview`) branch on `sys.platform` / `platform.system()`. Linux (`v4l2 -i /dev/video0`) is stubbed in `capture.py` but the server-side camera enumeration/probe is not implemented for Linux.
+  - On Windows the `device` passed to `/start`, `/preview`, `/camera-formats` is the camera **name**, not an index — `/cameras` returns `index == name` there.
