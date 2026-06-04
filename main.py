@@ -5,10 +5,14 @@ import subprocess
 from pathlib import Path
 
 import uvicorn
+from dotenv import load_dotenv
 
 from buffer import Buffer
 from capture import Capture
 from server import app, broadcast, set_trigger_callback, set_stop_callback, set_start_callback, get_session_name
+
+# โหลดค่าจาก .env (ถ้ามี) — key/url ต่างๆ ไม่ต้องพิมพ์ใน command line
+load_dotenv()
 
 # ── paths (absolute so threads never have CWD issues) ────────────────────────
 
