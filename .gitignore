@@ -10,7 +10,14 @@ venv/
 
 # Generated files
 segments/
-web/replay.mp4
+web/replay*.mp4
+web/*.png
+_run*.log
+_smoke*.log
+
+# secrets / local config (courts.json contains camera RTSP passwords)
+courts.json
+courts.json.bak
 
 # Claude memory
 .claude/

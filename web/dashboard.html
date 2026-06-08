@@ -5,408 +5,685 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Padel Replay</title>
   <script src="/qrcode.min.js"></script>
+  <script src="/hls.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    :root {
+      --bg: #0a0a0a; --card: #121212; --line: #222;
+      --fg: #ececec; --fg2: #8a8a8a; --fg3: #555;
+      --live: #e5484d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      background: #080808;
-      color: #f0f0f0;
-      font-family: 'Helvetica Neue', sans-serif;
-      height: 100dvh;
-      display: grid;
-      grid-template-rows: 52px 1fr 44px;
-      overflow: hidden;
+      background: var(--bg); color: var(--fg);
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100dvh; display: flex; flex-direction: column;
     }
-
-    /* ── Header ── */
     header {
-      background: #0f0f0f;
-      border-bottom: 1px solid #1c1c1c;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
+      height: 56px; flex-shrink: 0; padding: 0 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--line);
     }
+    .brand { font-size: 0.8rem; font-weight: 600; letter-spacing: 3px; color: var(--fg2); text-transform: uppercase; }
+    .hr { display: flex; align-items: center; gap: 18px; }
+    .clock { font-size: 0.75rem; color: var(--fg3); font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+    .gear { background: none; border: none; color: var(--fg2); font-size: 0.8rem; cursor: pointer; letter-spacing: 1px; }
+    .gear:hover { color: var(--fg); }
 
-    .logo {
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #facc15;
-    }
+    main { flex: 1; padding: 22px; overflow-y: auto; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); max-width: 1400px; margin: 0 auto; }
+    .empty { color: var(--fg3); text-align: center; margin-top: 90px; font-size: 0.9rem; }
+    .empty a { color: var(--fg); }
 
-    .header-right { display: flex; align-items: center; gap: 20px; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.1s; }
+    .tile:hover { border-color: #383838; }
+    .tile:active { transform: scale(0.99); }
+    .cam { position: relative; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+    .cam video { width: 100%; height: 100%; object-fit: cover; }
+    .ns { color: #2c2c2c; font-size: 0.85rem; }
+    .live { position: absolute; bottom: 10px; right: 12px; display: flex; align-items: center; gap: 5px; font-size: 0.58rem; font-weight: 600; letter-spacing: 1px; color: var(--fg2); }
+    .live i { width: 6px; height: 6px; border-radius: 50%; background: var(--live); animation: blink 1.4s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    .bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+    .bar .nm { font-size: 0.9rem; font-weight: 500; }
+    .bar .cnt { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .bar .cnt small { color: var(--fg3); font-weight: 400; font-size: 0.62rem; margin-left: 3px; letter-spacing: 1px; }
+    .tile.off { opacity: 0.45; }
+    .tile.off .live { display: none; }
 
-    .rec-badge {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      color: #ef4444;
-    }
-    .rec-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: #ef4444;
-      animation: blink 1.2s infinite;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+    footer { height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 0.68rem; color: var(--fg3); border-top: 1px solid var(--line); }
+    .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; }
+    .ws-dot.on { background: #3ba55d; }
 
-    .time {
-      font-size: 0.75rem;
-      color: #444;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 1px;
-    }
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+    .backdrop.open { display: flex; }
+    .modal { width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; background: #141414; border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+    .modal h3 { font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px; }
 
-    /* ── Main grid ── */
-    main {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      overflow: hidden;
-    }
+    /* court detail (มุมมองเต็มของคอร์ท) */
+    .detail { width: 100%; max-width: 860px; max-height: 92vh; overflow-y: auto; background: #101010; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; }
+    .detail-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .detail-title { font-size: 1rem; font-weight: 600; }
+    .detail-x { background: none; border: none; color: var(--fg2); font-size: 1.1rem; cursor: pointer; }
+    .detail-x:hover { color: var(--fg); }
+    .detail-cam { position: relative; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+    .detail-cam video { width: 100%; height: 100%; object-fit: contain; }
+    .detail-info { display: flex; align-items: center; gap: 16px; padding: 16px 18px; flex-wrap: wrap; }
+    .qr-box { background: #fff; padding: 8px; border-radius: 10px; flex-shrink: 0; }
+    .detail-meta { font-size: 0.7rem; color: var(--fg3); }
+    .detail-cnt { font-size: 1.4rem; font-weight: 600; margin-top: 2px; }
+    .detail-cnt small { font-size: 0.62rem; color: var(--fg3); font-weight: 400; margin-left: 4px; }
+    .detail-actions { margin-left: auto; display: flex; gap: 10px; }
 
-    @media (max-width: 700px) {
-      main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    }
+    .court-line { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; }
+    .court-line .ci { flex: 1; }
+    .court-line .nm { font-size: 0.88rem; font-weight: 500; }
+    .court-line .meta { font-size: 0.64rem; color: var(--fg3); margin-top: 2px; }
+    .court-line button { background: none; border: none; cursor: pointer; font-size: 0.75rem; color: var(--fg2); }
+    .court-line button:hover { color: var(--fg); }
+    .court-line .del:hover { color: var(--live); }
 
-    /* ── Camera feed ── */
-    .cam-wrap {
-      background: #000;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .cam-wrap video {
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
-
-    .cam-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    /* corner brackets */
-    .corner {
-      position: absolute;
-      width: 22px; height: 22px;
-      border-color: rgba(250,204,21,0.5);
-      border-style: solid;
-    }
-    .corner.tl { top:14px; left:14px; border-width:2px 0 0 2px; }
-    .corner.tr { top:14px; right:14px; border-width:2px 2px 0 0; }
-    .corner.bl { bottom:14px; left:14px; border-width:0 0 2px 2px; }
-    .corner.br { bottom:14px; right:14px; border-width:0 2px 2px 0; }
-
-    .cam-label-box {
-      position: absolute;
-      top: 14px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      color: #aaa;
-      font-size: 0.65rem;
-      letter-spacing: 2px;
-      padding: 3px 12px;
-      border-radius: 6px;
-      white-space: nowrap;
-    }
-
-    .no-signal {
-      color: #2a2a2a;
-      font-size: 0.9rem;
-      text-align: center;
-      flex-direction: column;
-      gap: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* ── Side panel ── */
-    .side {
-      background: #0c0c0c;
-      border-left: 1px solid #181818;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      padding: 28px 20px;
-    }
-
-    .panel-title {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #444;
-    }
-
-    .qr-wrap {
-      background: #fff;
-      padding: 14px;
-      border-radius: 14px;
-      box-shadow: 0 0 40px rgba(250,204,21,0.08);
-    }
-
-    .qr-sub {
-      font-size: 0.8rem;
-      color: #555;
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    .qr-url {
-      font-size: 0.6rem;
-      color: #333;
-      text-align: center;
-      word-break: break-all;
-      max-width: 200px;
-    }
-
-    .divider {
-      width: 80%;
-      height: 1px;
-      background: #1a1a1a;
-    }
-
-    .clip-counter {
-      text-align: center;
-    }
-    .clip-counter .num {
-      font-size: 2.8rem;
-      font-weight: 700;
-      color: #facc15;
-      line-height: 1;
-    }
-    .clip-counter .lbl {
-      font-size: 0.65rem;
-      color: #444;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      margin-top: 4px;
-    }
-
-    /* ── Footer ── */
-    footer {
-      background: #0f0f0f;
-      border-top: 1px solid #1c1c1c;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      gap: 28px;
-      font-size: 0.7rem;
-      color: #3a3a3a;
-      flex-shrink: 0;
-    }
-
-    .stat strong { color: #666; margin-left: 5px; }
-
-    .ws-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #333;
-      transition: background 0.3s;
-    }
-    .ws-dot.on { background: #22c55e; }
+    label.fld { font-size: 0.7rem; color: var(--fg2); letter-spacing: 0.5px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .row2 { display: grid; grid-template-columns: 88px 1fr; gap: 10px; }
+    .modal input, .modal select { width: 100%; padding: 11px 12px; background: #0c0c0c; color: var(--fg); border: 1px solid #2e2e2e; border-radius: 9px; font-size: 0.86rem; outline: none; }
+    .modal input:focus, .modal select:focus { border-color: #555; }
+    .mbtn { padding: 10px 14px; border-radius: 9px; font-size: 0.82rem; font-weight: 500; cursor: pointer; border: 1px solid #2e2e2e; background: transparent; color: var(--fg); white-space: nowrap; }
+    .mbtn:hover { border-color: #555; }
+    .mbtn.primary { background: #ececec; color: #111; border-color: #ececec; }
+    .mbtn.danger { color: var(--live); border-color: #3a1f1f; }
+    .mbtn.danger:hover { border-color: var(--live); }
+    .mbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .modal-err { background: #1a0f0f; border: 1px solid #4a2020; color: #e88; border-radius: 8px; padding: 9px 12px; font-size: 0.8rem; display: none; }
+    .divider { height: 1px; background: var(--line); }
   </style>
 </head>
 <body>
-
-  <!-- แสดงเมื่อยังไม่ start -->
-  <div id="setup-banner" style="display:none; background:#1a0f00; border-bottom:1px solid #facc1555;
-    padding:10px 20px; text-align:center; font-size:0.8rem; color:#facc15;">
-    ⚠️ ระบบยังไม่เริ่มอัด —
-    <a href="/setup" style="color:#facc15; font-weight:700; text-decoration:underline;">ไปหน้า Setup</a>
-    เพื่อเลือกกล้องและเริ่มระบบ
-  </div>
-
   <header>
-    <div class="logo">🎾 KROSS PADEL</div>
-    <div class="header-right">
-      <div class="time" id="clock">--:--:--</div>
-      <div class="rec-badge">
-        <div class="rec-dot"></div>
-        <span>REC</span>
-      </div>
+    <div class="brand">KROSS PADEL</div>
+    <div class="hr">
+      <span class="clock" id="clock">--:--:--</span>
+      <button class="gear" id="btn-refresh" onclick="refresh()">↻ รีเฟรช</button>
+      <button class="gear" onclick="openSettings()">ตั้งค่า</button>
     </div>
   </header>
 
   <main>
-    <!-- Camera feed -->
-    <div class="cam-wrap" id="cam-wrap">
-      <video id="cam-video" autoplay playsinline muted></video>
-      <div class="cam-overlay">
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
-        <div class="cam-label-box" id="cam-label">CAM 1</div>
-      </div>
-    </div>
-
-    <!-- Side panel -->
-    <div class="side">
-      <div class="panel-title">📱 Remote Control</div>
-
-      <div class="qr-wrap">
-        <div id="qr-canvas"></div>
-      </div>
-      <div class="qr-sub">สแกนเพื่อควบคุม<br>จากมือถือ</div>
-      <div class="qr-url" id="qr-url"></div>
-
-      <div class="divider"></div>
-
-      <div class="clip-counter">
-        <div class="num" id="clip-num">0</div>
-        <div class="lbl">คลิปวันนี้</div>
-      </div>
-    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" style="display:none">ยังไม่มีกล้อง — <a href="#" onclick="openEditor(); return false;" style="color:var(--fg)">+ เพิ่มกล้อง</a></div>
   </main>
 
   <footer>
-    <div class="stat">กล้อง:<strong id="stat-cam">—</strong></div>
-    <div class="stat">เซสชัน:<strong id="stat-session">—</strong></div>
-    <div class="stat">IP:<strong id="stat-ip">—</strong></div>
-    <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
-      <div class="ws-dot" id="ws-dot"></div>
-      <span id="ws-label">กำลังเชื่อมต่อ...</span>
-    </div>
+    <span>IP <span id="stat-ip" style="color:var(--fg2)">—</span></span>
+    <span style="margin-left:auto; display:flex; align-items:center; gap:7px;">
+      <span class="ws-dot" id="ws-dot"></span><span id="ws-label">เชื่อมต่อ...</span>
+    </span>
   </footer>
 
+  <!-- Court detail (แตะการ์ด) -->
+  <div class="backdrop" id="detail-modal">
+    <div class="detail">
+      <div class="detail-head">
+        <span class="detail-title" id="detail-name">คอร์ท</span>
+        <button class="detail-x" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="detail-cam">
+        <video id="detail-img" muted autoplay playsinline></video>
+        <div class="ns" id="detail-ns">⏳</div>
+        <span class="live"><i></i>LIVE</span>
+      </div>
+      <div class="detail-info">
+        <div class="qr-box" id="detail-qr"></div>
+        <div>
+          <div class="detail-meta" id="detail-meta"></div>
+          <div class="detail-cnt"><span id="detail-cnt">0</span><small>คลิปวันนี้</small></div>
+          <div class="detail-meta" style="margin-top:4px">📱 สแกน QR เพื่อสั่ง REPLAY จากมือถือ</div>
+        </div>
+        <div class="detail-actions">
+          <button class="mbtn primary" id="detail-replay" onclick="manualReplay()">⚡ REPLAY</button>
+          <button class="mbtn" onclick="editFromDetail()">แก้ไข</button>
+          <button class="mbtn danger" id="detail-stop" onclick="stopCourt()">⏸ หยุดคอร์ทนี้</button>
+          <button class="mbtn" id="detail-start" onclick="startCourt()" style="display:none">▶ เริ่มคอร์ทนี้</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="backdrop" id="settings-modal">
+    <div class="modal">
+      <h3>ตั้งค่า</h3>
+      <div class="field">
+        <label class="fld">ชื่อ session (ใช้จัดโฟลเดอร์อัปโหลดคลิป)</label>
+        <div style="display:flex; gap:8px">
+          <input id="s-session" style="flex:1" placeholder="เช่น 2026-06-08 รอบเย็น" maxlength="60" />
+          <button class="mbtn" onclick="saveSession()">บันทึก</button>
+        </div>
+        <span id="s-session-msg" style="font-size:0.72rem; color:#888"></span>
+      </div>
+      <div class="divider"></div>
+      <div id="court-list" style="display:flex; flex-direction:column; gap:9px;"></div>
+      <button class="mbtn" onclick="openEditor()">+ เพิ่มกล้อง</button>
+      <div class="divider"></div>
+      <div style="display:flex; gap:10px;">
+        <button class="mbtn" style="flex:1" onclick="closeSettings()">ปิด</button>
+        <button class="mbtn danger" style="flex:1" onclick="stopAll()">หยุดทั้งระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Court editor -->
+  <div class="backdrop" id="editor-modal">
+    <div class="modal">
+      <h3 id="editor-title">เพิ่มคอร์ท</h3>
+      <div class="row2">
+        <div class="field"><label class="fld">รหัส</label><input id="e-id" maxlength="6" /></div>
+        <div class="field"><label class="fld">ชื่อแสดง</label><input id="e-name" maxlength="40" /></div>
+      </div>
+      <div class="field"><label class="fld">กล้อง</label><select id="e-cam"></select></div>
+      <div class="field" id="e-rtsp-wrap" style="display:none">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+          <label class="fld" style="flex:1">ตั้งค่ากล้อง IP / CCTV</label>
+          <button type="button" class="mbtn" id="e-scan-btn" onclick="scanCctv()">🔍 หากล้องในเครือข่าย</button>
+        </div>
+        <select id="e-found" style="display:none; margin-top:6px" onchange="pickFound()"></select>
+        <div class="row2" style="margin-top:8px">
+          <div class="field"><label class="fld">ยี่ห้อ</label>
+            <select id="e-brand" onchange="rebuildRtsp()">
+              <option value="vigi">TP-Link VIGI</option>
+              <option value="hikvision">Hikvision</option>
+              <option value="dahua">Dahua</option>
+              <option value="custom">อื่นๆ (กรอก path เอง)</option>
+            </select>
+          </div>
+          <div class="field"><label class="fld">สตรีม</label>
+            <select id="e-stream" onchange="rebuildRtsp()">
+              <option value="main">Main (เต็มความละเอียด)</option>
+              <option value="sub">Sub (เบา)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <input id="e-ip" oninput="rebuildRtsp()" style="flex:2; min-width:140px" placeholder="IP เช่น 192.168.100.80" />
+          <input id="e-port" oninput="rebuildRtsp()" style="flex:1; min-width:64px" placeholder="554" value="554" />
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <input id="e-user" oninput="rebuildRtsp()" style="flex:1; min-width:110px" placeholder="Username (admin)" />
+          <input id="e-pass" type="password" oninput="rebuildRtsp()" style="flex:1; min-width:110px" placeholder="Password" />
+        </div>
+        <div class="field" id="e-path-wrap" style="display:none; margin-top:8px">
+          <label class="fld">RTSP path</label>
+          <input id="e-path" oninput="rebuildRtsp()" placeholder="/stream1" />
+        </div>
+        <label class="fld" style="margin-top:8px">RTSP URL (ประกอบให้อัตโนมัติ — แก้เองได้)</label>
+        <input id="e-rtsp" placeholder="rtsp://user:pass@192.168.100.80:554/stream1" />
+        <div style="display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap">
+          <button type="button" class="mbtn" id="e-verify-btn" onclick="verifyRtsp()">✓ ทดสอบการเชื่อมต่อ</button>
+          <span id="e-cctv-msg" style="font-size:0.78rem; color:#888"></span>
+        </div>
+      </div>
+      <div class="field"><label class="fld">ความละเอียด / เฟรมเรท</label><select id="e-fmt"></select></div>
+      <div class="modal-err" id="editor-err"></div>
+      <div style="display:flex; gap:10px;">
+        <button class="mbtn" style="flex:1" onclick="closeEditor()">ยกเลิก</button>
+        <button class="mbtn primary" style="flex:1" id="e-save" onclick="saveCourt()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // ── Camera info from setup ───────────────────────────────────────────────
-    const camName  = sessionStorage.getItem('camName')   || 'CAM';
-    const camIndex = sessionStorage.getItem('camIndex')  || '0';
-    const camDevId = sessionStorage.getItem('camDevId')  || null;
-    const session  = sessionStorage.getItem('session')   || '';
+    let operatorBase = location.origin;
+    const previews = {};        // tile preview hls.js ต่อคอร์ท
+    const counters = {};
+    const courtsById = {};
+    let detailWs = null, detailCourt = null;
+    let systemStopped = false;
+    let editingId = null;
 
-    document.getElementById('stat-cam').textContent  = `${camName} [${camIndex}]`;
-    document.getElementById('cam-label').textContent = `CAM ${camIndex}  —  ${camName}`;
-    if (session) document.getElementById('stat-session').textContent = session;
+    setInterval(() => {
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString('th-TH', { hour12: false });
+    }, 1000);
 
-    // ── Clock ────────────────────────────────────────────────────────────────
-    function tick() {
-      document.getElementById('clock').textContent =
-        new Date().toLocaleTimeString('th-TH', { hour12: false });
-    }
-    tick();
-    setInterval(tick, 1000);
-
-    // ── QR Code ──────────────────────────────────────────────────────────────
-    async function initQR() {
-      let url;
+    (async () => {
       try {
-        const res = await fetch('/info');
-        const { ip, port } = await res.json();
-        url = `http://${ip}:${port}/operator`;
+        const { ip, port } = await (await fetch('/info')).json();
+        operatorBase = `http://${ip}:${port}`;
         document.getElementById('stat-ip').textContent = ip;
-      } catch {
-        url = `${location.origin}/operator`;
-      }
-      document.getElementById('qr-url').textContent = url;
-      new QRCode(document.getElementById('qr-canvas'), {
-        text: url, width: 200, height: 200,
-        colorDark: '#000000', colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
+      } catch {}
+      loadCourts();
+    })();
+
+    async function loadCourts() {
+      let courts = [];
+      try { courts = (await (await fetch('/courts')).json()).courts || []; } catch {}
+      Object.values(previews).forEach(p => { try { p.destroy(); } catch {} });
+      for (const k in previews) delete previews[k];
+      for (const k in courtsById) delete courtsById[k];
+
+      const grid = document.getElementById('grid');
+      const empty = document.getElementById('empty');
+      grid.innerHTML = '';
+      if (!courts.length) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      courts.forEach(c => {
+        const name = c.name || ('Court ' + c.id);
+        courtsById[c.id] = { ...c, name };
+        if (!(c.id in counters)) counters[c.id] = 0;
+        const tile = document.createElement('div');
+        tile.className = 'tile' + (c.running ? '' : ' off');
+        tile.onclick = () => openDetail(c.id);
+        tile.innerHTML = `
+          <div class="cam">
+            <video id="img-${c.id}" muted autoplay playsinline></video>
+            <div class="ns" id="ns-${c.id}">${c.running ? '⏳' : 'หยุดอยู่'}</div>
+            <span class="live"><i></i>LIVE</span>
+          </div>
+          <div class="bar">
+            <span class="nm">${name}</span>
+            <span class="cnt"><span id="cnt-${c.id}">${counters[c.id]}</span><small>คลิป</small></span>
+          </div>`;
+        grid.appendChild(tile);
+        if (c.running) startPreview(c.id);
       });
     }
-    initQR();
 
-    // ── ตรวจสอบว่า recording เริ่มแล้วหรือยัง ───────────────────────────────
-    fetch('/status').then(r => r.json()).then(({ started }) => {
-      if (!started) document.getElementById('setup-banner').style.display = 'block';
-    });
+    async function refresh() {
+      const b = document.getElementById('btn-refresh');
+      b.disabled = true; b.textContent = '↻ ...';
+      await loadCourts();
+      b.textContent = '↻ รีเฟรช'; b.disabled = false;
+    }
 
-    // ── Camera preview (getUserMedia) ────────────────────────────────────────
-    let camStream = null;
-    async function startPreview() {
-      const video = document.getElementById('cam-video');
+    // เล่นพรีวิวสดจาก HLS ที่ server เขียนไว้ (hls.js) — server ไม่ต้อง encode preview แยก
+    function attachHls(videoEl, courtId, nsEl) {
+      const src = `/hls/${encodeURIComponent(courtId)}/playlist.m3u8`;
+      const onPlaying = () => { if (nsEl) nsEl.style.display = 'none'; };
+      videoEl.addEventListener('playing', onPlaying);
+      if (window.Hls && Hls.isSupported()) {
+        const hls = new Hls({ liveSyncDurationCount: 2, maxBufferLength: 6,
+          manifestLoadingMaxRetry: 10, manifestLoadingRetryDelay: 1000 });
+        hls.loadSource(src);
+        hls.attachMedia(videoEl);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play().catch(() => {}));
+        return { destroy() { try { hls.destroy(); } catch {} videoEl.removeEventListener('playing', onPlaying); } };
+      }
+      // Safari / iOS — เล่น HLS ได้ native
+      videoEl.src = src;
+      videoEl.play().catch(() => {});
+      return { destroy() { videoEl.removeAttribute('src'); try { videoEl.load(); } catch {} videoEl.removeEventListener('playing', onPlaying); } };
+    }
+
+    function startPreview(courtId) {
+      const video = document.getElementById(`img-${courtId}`);
+      const ns = document.getElementById(`ns-${courtId}`);
+      if (!video) return;
+      if (previews[courtId]) { try { previews[courtId].destroy(); } catch {} }
+      previews[courtId] = attachHls(video, courtId, ns);
+    }
+
+    // ── court detail view ──
+    function openDetail(id) {
+      const c = courtsById[id];
+      if (!c) return;
+      detailCourt = id;
+      document.getElementById('detail-name').textContent = c.name;
+      document.getElementById('detail-meta').textContent = `${c.device} · ${c.width}×${c.height}@${c.fps} · ${c.running ? 'กำลังอัด' : 'หยุดอยู่'}`;
+      document.getElementById('detail-cnt').textContent = counters[id] || 0;
+      const running = !!c.running;
+      document.getElementById('detail-replay').style.display = running ? '' : 'none';
+      document.getElementById('detail-stop').style.display = running ? '' : 'none';
+      document.getElementById('detail-start').style.display = running ? 'none' : '';
+      const qr = document.getElementById('detail-qr');
+      qr.innerHTML = '';
+      new QRCode(qr, { text: `${operatorBase}/operator?court=${encodeURIComponent(id)}`, width: 110, height: 110, correctLevel: QRCode.CorrectLevel.M });
+      const video = document.getElementById('detail-img');
+      const ns = document.getElementById('detail-ns');
+      ns.style.display = 'block'; ns.textContent = c.running ? '⏳' : 'หยุดอยู่';
+      document.getElementById('detail-modal').classList.add('open');
+      if (detailWs) { try { detailWs.destroy(); } catch {} detailWs = null; }
+      if (c.running) detailWs = attachHls(video, id, ns);
+    }
+    function closeDetail() {
+      document.getElementById('detail-modal').classList.remove('open');
+      if (detailWs) { try { detailWs.destroy(); } catch {} detailWs = null; }
+      detailCourt = null;
+    }
+    async function manualReplay() {
+      if (!detailCourt) return;
+      await fetch(`/trigger?court=${encodeURIComponent(detailCourt)}`, { method: 'POST' });
+    }
+    function editFromDetail() {
+      const c = courtsById[detailCourt];
+      closeDetail();
+      openEditor(c);
+    }
+    async function stopCourt() {
+      if (!detailCourt) return;
+      if (!confirm(`หยุดคอร์ท ${detailCourt}? (กล้องหยุดอัด แต่ยังอยู่ในระบบ เริ่มใหม่ได้)`)) return;
+      const id = detailCourt;
+      await fetch(`/stop?court=${encodeURIComponent(id)}`, { method: 'POST' });
+      await loadCourts();
+      openDetail(id);
+    }
+    async function startCourt() {
+      if (!detailCourt) return;
+      const c = courtsById[detailCourt];
+      if (!c) return;
+      const id = detailCourt;
+      const btn = document.getElementById('detail-start');
+      btn.disabled = true; btn.textContent = '⏳ กำลังเริ่ม...';
       try {
-        const constraints = camDevId
-          ? { video: { deviceId: { exact: camDevId } } }
-          : { video: true };
-        camStream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = camStream;
-      } catch {
-        video.style.display = 'none';
-        document.getElementById('cam-wrap').innerHTML =
-          '<div class="no-signal">📷<br>ไม่สามารถแสดงภาพกล้อง</div>';
+        const res = await fetch('/courts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: c.id, name: c.name, device: c.device, fps: c.fps, width: c.width, height: c.height }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'เปิดกล้องไม่ได้'); }
+        await loadCourts();
+        openDetail(id);
+      } catch (e) {
+        alert('เริ่มคอร์ทไม่ได้: ' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '▶ เริ่มคอร์ทนี้';
       }
     }
-    startPreview();
 
-    // ── ปล่อยกล้อง + ขึ้นจอ "หยุดแล้ว" (เรียกตอนระบบถูกสั่งหยุด) ─────────────
-    let systemStopped = false;
-    function onSystemStopped() {
-      systemStopped = true;
-      // ปล่อยกล้องในเบราว์เซอร์ → ไฟกล้องดับ
-      if (camStream) {
-        camStream.getTracks().forEach(t => t.stop());
-        camStream = null;
-      }
-      document.body.innerHTML =
-        '<div style="height:100dvh;display:flex;flex-direction:column;' +
-        'align-items:center;justify-content:center;gap:18px;color:#666;' +
-        'font-family:Helvetica Neue,sans-serif;background:#080808;">' +
-        '<div style="font-size:3rem">⏹</div>' +
-        '<div style="font-size:1.2rem;font-weight:700;color:#aaa">ระบบหยุดทำงานแล้ว</div>' +
-        '<div style="font-size:0.85rem;color:#555">ไฟกล้องดับแล้ว ปิดแท็บนี้ได้เลย</div>' +
-        '<a href="/setup" style="margin-top:10px;padding:12px 24px;border:2px solid #facc15;' +
-        'border-radius:10px;color:#facc15;text-decoration:none;font-weight:700">เริ่มใหม่ →</a>' +
-        '</div>';
-    }
-
-    // ── WebSocket: clip counter + connection status ───────────────────────────
-    const wsDot   = document.getElementById('ws-dot');
-    const wsLabel = document.getElementById('ws-label');
-    const clipNum = document.getElementById('clip-num');
-    let clips = 0;
-
-    let reconnectTimer = null;
+    // ── status WS ──
     function connect() {
       const ws = new WebSocket(`ws://${location.host}/ws`);
-      let pingTimer = null;
-
+      let ping;
       ws.onopen = () => {
-        wsDot.className     = 'ws-dot on';
-        wsLabel.textContent = 'เชื่อมต่อแล้ว';
-        pingTimer = setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
+        document.getElementById('ws-dot').className = 'ws-dot on';
+        document.getElementById('ws-label').textContent = 'เชื่อมต่อแล้ว';
+        ping = setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
       };
-
       ws.onmessage = ({ data }) => {
         const msg = JSON.parse(data);
         if (msg.event === 'replay_ready') {
-          clips++;
-          clipNum.textContent = clips;
-          clipNum.style.color = '#22c55e';
-          setTimeout(() => clipNum.style.color = '#facc15', 600);
+          const id = msg.court;
+          counters[id] = (counters[id] || 0) + 1;
+          const el = document.getElementById(`cnt-${id}`);
+          if (el) { el.textContent = counters[id]; el.style.color = '#3ba55d'; setTimeout(() => el.style.color = '', 600); }
+          if (detailCourt === id) document.getElementById('detail-cnt').textContent = counters[id];
         } else if (msg.event === 'system_stopped') {
           onSystemStopped();
         }
       };
-
-      ws.onerror = () => {}; // onclose จะจัดการต่อ
-
       ws.onclose = () => {
-        clearInterval(pingTimer);
-        if (systemStopped) return;   // ตั้งใจหยุด ไม่ต้อง reconnect
-        wsDot.className     = 'ws-dot';
-        wsLabel.textContent = 'ขาดการเชื่อมต่อ...';
-        if (!reconnectTimer) {
-          reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 3000);
-        }
+        clearInterval(ping);
+        if (systemStopped) return;
+        document.getElementById('ws-dot').className = 'ws-dot';
+        document.getElementById('ws-label').textContent = 'ขาดการเชื่อมต่อ...';
+        setTimeout(connect, 3000);
       };
+      ws.onerror = () => {};
     }
     connect();
+
+    function onSystemStopped() {
+      systemStopped = true;
+      Object.values(previews).forEach(p => { try { p.destroy(); } catch {} });
+      if (detailWs) { try { detailWs.destroy(); } catch {} }
+      document.body.innerHTML =
+        '<div style="height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#777;background:#0a0a0a;font-family:Helvetica Neue,sans-serif">' +
+        '<div style="font-size:2.4rem">⏹</div><div style="font-size:1.05rem;color:#aaa">ระบบหยุดทำงานแล้ว</div>' +
+        '<a href="/setup" style="margin-top:8px;padding:11px 22px;border:1px solid #444;border-radius:9px;color:#ececec;text-decoration:none">เริ่มใหม่</a></div>';
+    }
+
+    // ── settings ──
+    async function openSettings() {
+      document.getElementById('settings-modal').classList.add('open');
+      document.getElementById('s-session-msg').textContent = '';
+      try {
+        const { session } = await (await fetch('/session')).json();
+        document.getElementById('s-session').value = session || '';
+      } catch {}
+      const list = document.getElementById('court-list');
+      list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">โหลด...</span>';
+      let courts = [];
+      try { courts = (await (await fetch('/courts')).json()).courts || []; } catch {}
+      if (!courts.length) { list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">ยังไม่มีคอร์ท</span>'; return; }
+      list.innerHTML = '';
+      courts.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'court-line';
+        row.innerHTML = `<div class="ci"><div class="nm">${c.name || c.id} <span style="color:var(--fg3)">(${c.id})</span></div>
+          <div class="meta">${c.device} · ${c.width}×${c.height}@${c.fps} ${c.running ? '· อัดอยู่' : '· หยุด'}</div></div>
+          <button class="edit">แก้ไข</button><button class="del">ลบ</button>`;
+        row.querySelector('.edit').onclick = () => openEditor(c);
+        row.querySelector('.del').onclick = () => removeCourt(c.id);
+        list.appendChild(row);
+      });
+    }
+    function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+    async function saveSession() {
+      const session = document.getElementById('s-session').value.trim();
+      const msg = document.getElementById('s-session-msg');
+      msg.style.color = '#888'; msg.textContent = 'กำลังบันทึก...';
+      try {
+        const res = await fetch('/session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session }),
+        });
+        if (!res.ok) throw new Error();
+        msg.style.color = '#22c55e'; msg.textContent = '✅ บันทึกแล้ว';
+      } catch {
+        msg.style.color = '#ef4444'; msg.textContent = '❌ บันทึกไม่สำเร็จ';
+      }
+    }
+
+    async function removeCourt(id) {
+      if (!confirm(`ลบคอร์ท ${id}? (กล้องจะหยุดอัด)`)) return;
+      await fetch(`/courts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      openSettings(); loadCourts();
+    }
+    async function stopAll() {
+      if (!confirm('หยุดทั้งระบบ? กล้องทุกตัวจะดับ')) return;
+      await fetch('/stop', { method: 'POST' });
+    }
+
+    // ── editor ──
+    let editorModes = [];
+    async function openEditor(court) {
+      editingId = court ? court.id : null;
+      document.getElementById('editor-title').textContent = court ? `แก้ไขคอร์ท ${court.id}` : 'เพิ่มคอร์ท';
+      document.getElementById('editor-err').style.display = 'none';
+      const idEl = document.getElementById('e-id');
+      idEl.value = court ? court.id : '';
+      idEl.disabled = !!court;
+      document.getElementById('e-name').value = court ? (court.name || '') : '';
+      // reset ช่องตัวประกอบ RTSP (parseRtspIntoBuilder จะเติมกลับให้ถ้าเป็นการแก้คอร์ท RTSP เดิม)
+      ['e-ip', 'e-user', 'e-pass', 'e-path'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('e-port').value = '554';
+      document.getElementById('e-brand').value = 'vigi';
+      document.getElementById('e-stream').value = 'main';
+      document.getElementById('e-found').style.display = 'none';
+      document.getElementById('e-path-wrap').style.display = 'none';
+      document.getElementById('e-cctv-msg').textContent = '';
+      document.getElementById('settings-modal').classList.remove('open');
+      document.getElementById('editor-modal').classList.add('open');
+
+      const camSel = document.getElementById('e-cam');
+      camSel.innerHTML = '<option>...</option>';
+      let cams = [];
+      try { cams = (await (await fetch('/cameras')).json()).cameras || []; } catch {}
+      camSel.innerHTML = '';
+      cams.forEach(c => { const o = document.createElement('option'); o.value = c.index; o.textContent = c.name; camSel.appendChild(o); });
+      const ro = document.createElement('option'); ro.value = '__rtsp__'; ro.textContent = '📡 กล้อง IP / CCTV (RTSP)…'; camSel.appendChild(ro);
+      const isRtsp = !!(court && /^rtsps?:\/\//.test(court.device || ''));
+      document.getElementById('e-rtsp').value = isRtsp ? court.device : '';
+      if (court) camSel.value = isRtsp ? '__rtsp__' : court.device;
+      camSel.onchange = () => onCamChange();
+      onCamChange(court);
+    }
+    function closeEditor() { document.getElementById('editor-modal').classList.remove('open'); }
+
+    function onCamChange(court) {
+      const isRtsp = document.getElementById('e-cam').value === '__rtsp__';
+      document.getElementById('e-rtsp-wrap').style.display = isRtsp ? 'flex' : 'none';
+      if (isRtsp) {
+        // เตรียมตัวประกอบ RTSP — ถ้าแก้คอร์ทเดิมที่เป็น RTSP อยู่แล้ว แตก URL กลับมาใส่ช่อง
+        document.getElementById('e-found').style.display = 'none';
+        document.getElementById('e-cctv-msg').textContent = '';
+        if (court && /^rtsps?:\/\//.test(court.device || '')) parseRtspIntoBuilder(court.device);
+        editorModes = [
+          { width:1920, height:1080, fps:30, label:'1920×1080 · 30fps' },
+          { width:1280, height:720, fps:30, label:'1280×720 · 30fps' },
+          { width:854, height:480, fps:30, label:'854×480 · 30fps' },
+        ];
+        const sel = document.getElementById('e-fmt'); sel.innerHTML = '';
+        editorModes.forEach((m, i) => { const o = document.createElement('option'); o.value = i; o.textContent = m.label; sel.appendChild(o); });
+        if (court) { const idx = editorModes.findIndex(m => m.width===court.width && m.height===court.height && m.fps===court.fps); if (idx>=0) sel.value = idx; }
+      } else {
+        loadEditorFormats(document.getElementById('e-cam').value, court);
+      }
+    }
+
+    async function loadEditorFormats(device, court) {
+      const sel = document.getElementById('e-fmt');
+      sel.innerHTML = '<option>...</option>';
+      try {
+        const data = await (await fetch(`/camera-formats?device=${encodeURIComponent(device)}`)).json();
+        editorModes = (data.modes && data.modes.length) ? data.modes : [{ width:1280, height:720, fps:30, label:'1280×720 · 30fps' }];
+      } catch { editorModes = [{ width:1280, height:720, fps:30, label:'1280×720 · 30fps' }]; }
+      sel.innerHTML = '';
+      editorModes.forEach((m, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = m.label || `${m.width}×${m.height} · ${m.fps}fps`;
+        sel.appendChild(o);
+      });
+      if (court) {
+        const idx = editorModes.findIndex(m => m.width === court.width && m.height === court.height && m.fps === court.fps);
+        if (idx >= 0) sel.value = idx;
+      }
+    }
+
+    // ── ตัวประกอบ RTSP URL อัตโนมัติตามยี่ห้อ (แบบ VIGI Security Manager) ──
+    const RTSP_PATHS = {
+      vigi:      { main: '/stream1', sub: '/stream2' },
+      hikvision: { main: '/Streaming/Channels/101', sub: '/Streaming/Channels/102' },
+      dahua:     { main: '/cam/realmonitor?channel=1&subtype=0', sub: '/cam/realmonitor?channel=1&subtype=1' },
+    };
+
+    function rebuildRtsp() {
+      const brand = document.getElementById('e-brand').value;
+      const stream = document.getElementById('e-stream').value;
+      document.getElementById('e-path-wrap').style.display = brand === 'custom' ? 'flex' : 'none';
+      const ip = document.getElementById('e-ip').value.trim();
+      const port = document.getElementById('e-port').value.trim() || '554';
+      const user = document.getElementById('e-user').value.trim();
+      const pass = document.getElementById('e-pass').value;
+      let path = brand === 'custom'
+        ? (document.getElementById('e-path').value.trim() || '/')
+        : (RTSP_PATHS[brand] || RTSP_PATHS.vigi)[stream];
+      if (!path.startsWith('/')) path = '/' + path;
+      if (!ip) return;  // ยังประกอบไม่ได้ ปล่อยช่อง URL ไว้ก่อน
+      const cred = user ? `${encodeURIComponent(user)}:${encodeURIComponent(pass)}@` : '';
+      document.getElementById('e-rtsp').value = `rtsp://${cred}${ip}:${port}${path}`;
+    }
+
+    function parseRtspIntoBuilder(url) {
+      const m = url.match(/^rtsps?:\/\/(?:([^:@/]+):([^@/]*)@)?([^:/]+)(?::(\d+))?(\/.*)?$/);
+      if (!m) return;
+      document.getElementById('e-user').value = m[1] ? decodeURIComponent(m[1]) : '';
+      document.getElementById('e-pass').value = m[2] ? decodeURIComponent(m[2]) : '';
+      document.getElementById('e-ip').value = m[3] || '';
+      document.getElementById('e-port').value = m[4] || '554';
+      const path = m[5] || '';
+      let brand = 'custom';
+      if (/\/stream[12]$/.test(path)) brand = 'vigi';
+      else if (/Streaming\/Channels/.test(path)) brand = 'hikvision';
+      else if (/realmonitor/.test(path)) brand = 'dahua';
+      document.getElementById('e-brand').value = brand;
+      document.getElementById('e-stream').value = /(2$|subtype=1)/.test(path) ? 'sub' : 'main';
+      document.getElementById('e-path-wrap').style.display = brand === 'custom' ? 'flex' : 'none';
+      if (brand === 'custom') document.getElementById('e-path').value = path;
+    }
+
+    // ค้นหา IP กล้องในเครือข่าย (ไล่สแกนพอร์ต 554) — เติม IP ให้ตัวประกอบ
+    async function scanCctv() {
+      const sel = document.getElementById('e-found');
+      const msg = document.getElementById('e-cctv-msg');
+      const btn = document.getElementById('e-scan-btn');
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ ค้นหา...';
+      msg.style.color = '#888'; msg.textContent = 'กำลังสแกนเครือข่าย (~10 วินาที)...';
+      try {
+        const cams = (await (await fetch('/scan-cctv')).json()).cameras || [];
+        if (!cams.length) { msg.style.color = '#ef4444'; msg.textContent = '❌ ไม่พบกล้องในเครือข่าย'; return; }
+        sel.innerHTML = '<option value="">— เลือก IP กล้องที่พบ —</option>';
+        cams.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.ip;
+          o.textContent = (c.name && c.name !== c.ip) ? `${c.ip} (${c.name})` : c.ip;
+          sel.appendChild(o);
+        });
+        sel.style.display = 'block';
+        msg.style.color = '#22c55e'; msg.textContent = `พบ ${cams.length} อุปกรณ์ — เลือก IP แล้วใส่ user/pass`;
+      } catch {
+        msg.style.color = '#ef4444'; msg.textContent = '❌ สแกนไม่สำเร็จ';
+      } finally { btn.disabled = false; btn.textContent = orig; }
+    }
+
+    function pickFound() {
+      const ip = document.getElementById('e-found').value;
+      if (ip) { document.getElementById('e-ip').value = ip; rebuildRtsp(); }
+    }
+
+    // ทดสอบต่อ RTSP จริงด้วย ffprobe ก่อนบันทึก (แบบปุ่ม Verify)
+    async function verifyRtsp() {
+      const url = document.getElementById('e-rtsp').value.trim();
+      const msg = document.getElementById('e-cctv-msg');
+      const btn = document.getElementById('e-verify-btn');
+      if (!/^rtsps?:\/\//.test(url)) { msg.style.color = '#ef4444'; msg.textContent = '⚠️ ยังไม่มี RTSP URL (กรอก IP/user/pass ก่อน)'; return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ กำลังทดสอบ...';
+      msg.style.color = '#888'; msg.textContent = 'กำลังเชื่อมต่อกล้อง (~10 วิ)...';
+      try {
+        const res = await fetch('/verify-rtsp', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.detail || 'เชื่อมต่อไม่สำเร็จ');
+        msg.style.color = '#22c55e';
+        msg.textContent = `✅ ต่อติด — ${data.width}×${data.height} ${data.codec || ''}${data.fps ? ' @' + data.fps + 'fps' : ''} (กดบันทึกได้เลย)`;
+      } catch (e) {
+        msg.style.color = '#ef4444'; msg.textContent = '❌ ' + e.message;
+      } finally { btn.disabled = false; btn.textContent = orig; }
+    }
+
+    async function saveCourt() {
+      const id = document.getElementById('e-id').value.trim();
+      const name = document.getElementById('e-name').value.trim();
+      let device = document.getElementById('e-cam').value;
+      const m = editorModes[parseInt(document.getElementById('e-fmt').value || '0', 10)] || { width:1280, height:720, fps:30 };
+      const err = document.getElementById('editor-err');
+      const btn = document.getElementById('e-save');
+      if (!id) { err.textContent = 'ใส่รหัสคอร์ท'; err.style.display = 'block'; return; }
+      if (device === '__rtsp__') {
+        device = document.getElementById('e-rtsp').value.trim();
+        if (!/^rtsps?:\/\//.test(device)) { err.textContent = 'ใส่ RTSP URL ให้ถูก (rtsp://...)'; err.style.display = 'block'; return; }
+      }
+      btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; err.style.display = 'none';
+      try {
+        const res = await fetch('/courts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name, device, fps: m.fps, width: m.width, height: m.height }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'เปิดกล้องไม่ได้'); }
+        closeEditor(); loadCourts();
+      } catch (e) {
+        err.textContent = e.message; err.style.display = 'block';
+      } finally {
+        btn.disabled = false; btn.textContent = 'บันทึก';
+      }
+    }
+
+    // คลิกพื้นหลังปิด modal (detail ต้องปิด ws ด้วย)
+    document.querySelectorAll('.backdrop').forEach(b => b.addEventListener('click', e => {
+      if (e.target !== b) return;
+      if (b.id === 'detail-modal') closeDetail();
+      else b.classList.remove('open');
+    }));
   </script>
 </body>
 </html>

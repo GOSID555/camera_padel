@@ -133,8 +133,8 @@
 
   <!-- แสดง user ที่กำลังใช้งาน / ให้กรอกถ้ายังไม่มี -->
   <div id="user-box" style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#888;">
-    <span>User:</span>
-    <input id="uid-input" placeholder="ใส่ User ID เช่น USER123"
+    <span>User (ไม่บังคับ):</span>
+    <input id="uid-input" placeholder="เว้นว่างได้ถ้ามีการจอง"
       style="background:#111; border:1px solid #333; color:#facc15; border-radius:8px;
              padding:8px 12px; font-size:0.9rem; font-weight:700; outline:none; width:180px; text-align:center;" />
   </div>
@@ -170,6 +170,7 @@
     // ── อ่าน uid / court จาก URL (แอปฝังมาตอนเปิด operator) ───────────────────
     const qs    = new URLSearchParams(location.search);
     const court = qs.get('court') || 'A';
+    document.querySelector('h1').textContent = `🎾 Padel Replay · คอร์ท ${court}`;
 
     // uid: ใช้จาก URL ก่อน, ถ้าไม่มีให้กรอกในช่อง (จำไว้ใน localStorage)
     const uidInput = document.getElementById('uid-input');
@@ -189,7 +190,7 @@
     };
     ws.onmessage = ({ data }) => {
       const msg = JSON.parse(data);
-      if (msg.event === 'replay_ready') {
+      if (msg.event === 'replay_ready' && (!msg.court || msg.court === court)) {
         clipCount++;
         countEl.textContent = clipCount;
       }
@@ -204,16 +205,8 @@
     async function triggerReplay() {
       if (busy) return;
 
+      // User ID ไม่บังคับ — ถ้ามีการจอง (booking) ระบบจะหาผู้เล่นจาก court+เวลาเอง
       const uid = getUid();
-      if (!uid) {
-        // ไม่มี user → เตือนแทนที่จะส่งเงียบๆ แล้วล้มเหลว
-        uidInput.style.borderColor = '#ef4444';
-        uidInput.focus();
-        label.textContent = 'ใส่ User ID ก่อน';
-        btn.classList.add('error');
-        setTimeout(reset, 1800);
-        return;
-      }
       uidInput.style.borderColor = '#333';
       busy = true;
 
