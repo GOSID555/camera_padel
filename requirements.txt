@@ -4,3 +4,4 @@ pynput>=1.7.6
 httpx>=0.27.0
 python-dotenv>=1.0.0
 python-multipart>=0.0.9  # ใช้โดย mock_cloud.py (รับ multipart upload)
+psutil>=5.9.0            # CPU / RAM usage บน dashboard (/stats)

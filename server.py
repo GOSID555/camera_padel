@@ -206,6 +206,55 @@ async def post_session(body: SessionIn):
     return JSONResponse({"status": "ok", "session": body.session})
 
 
+# ── system resource stats (CPU / GPU / RAM) ───────────────────────────────────
+_gpu_available: bool | None = None   # lazy probe: None=ยังไม่เช็ค, False=ไม่มี nvidia-smi
+
+
+def _gpu_stats() -> dict | None:
+    """GPU utilization + VRAM ผ่าน nvidia-smi — คืน None ถ้าไม่มี NVIDIA GPU"""
+    global _gpu_available
+    if _gpu_available is False:
+        return None
+    try:
+        out = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=utilization.gpu,memory.used,memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2,
+        )
+        if out.returncode != 0 or not out.stdout.strip():
+            _gpu_available = False
+            return None
+        util, used, total = (x.strip() for x in out.stdout.strip().splitlines()[0].split(","))
+        _gpu_available = True
+        return {"percent": float(util), "mem_used": float(used), "mem_total": float(total)}
+    except Exception:
+        _gpu_available = False
+        return None
+
+
+def _system_stats() -> dict:
+    data = {"cpu": None, "ram": None, "ram_used": None, "ram_total": None, "gpu": None}
+    try:
+        import psutil
+        data["cpu"] = psutil.cpu_percent(interval=None)
+        vm = psutil.virtual_memory()
+        data["ram"] = vm.percent
+        data["ram_used"] = round(vm.used / 1e9, 1)
+        data["ram_total"] = round(vm.total / 1e9, 1)
+    except Exception:
+        pass
+    data["gpu"] = _gpu_stats()
+    return data
+
+
+@app.get("/stats")
+async def stats():
+    return JSONResponse(
+        await asyncio.get_running_loop().run_in_executor(None, _system_stats)
+    )
+
+
 @app.get("/info")
 async def info():
     import socket

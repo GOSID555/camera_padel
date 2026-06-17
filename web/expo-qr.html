@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expo QR — Padel</title>
+  <script src="./qrcode.min.js"></script>
+  <style>
+    body { background:#0d0d0d; color:#f0f0f0; font-family:'Helvetica Neue',sans-serif;
+           min-height:100vh; margin:0; display:flex; flex-direction:column;
+           align-items:center; justify-content:center; gap:22px; padding:24px; }
+    h1 { font-size:1rem; letter-spacing:3px; color:#888; text-transform:uppercase; }
+    .qr { background:#fff; padding:18px; border-radius:16px; }
+    .url { font-size:1.05rem; color:#facc15; font-weight:700; letter-spacing:1px; }
+    .hint { font-size:0.85rem; color:#666; text-align:center; line-height:1.7; max-width:420px; }
+    code { background:#1a1a1a; padding:2px 7px; border-radius:6px; color:#ececec; }
+  </style>
+</head>
+<body>
+  <h1>📱 Expo Go — Scan to open the app</h1>
+  <div class="qr" id="qr"></div>
+  <div class="url" id="url"></div>
+  <div class="hint">
+    1. มือถือต่อ WiFi วง <b>AIS</b> เดียวกับโน้ตบุ๊ก<br/>
+    2. เปิดแอพ <b>Expo Go</b> → สแกน QR นี้ (หรือพิมพ์ URL เอง)<br/>
+    3. ในแอพตั้ง <code>Server: 192.168.1.157</code> · <code>User ID: USER123</code>
+  </div>
+  <script>
+    const EXP = 'exp://192.168.1.157:8081';
+    document.getElementById('url').textContent = EXP;
+    new QRCode(document.getElementById('qr'), {
+      text: EXP, width: 280, height: 280,
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  </script>
+</body>
+</html>

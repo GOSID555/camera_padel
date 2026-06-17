@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -51,6 +51,8 @@
     .tile.off .live { display: none; }
 
     footer { height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 0.68rem; color: var(--fg3); border-top: 1px solid var(--line); }
+    footer .sys { display: flex; gap: 16px; margin-left: 8px; }
+    footer .sys b { color: var(--fg2); font-weight: 600; font-variant-numeric: tabular-nums; }
     .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; }
     .ws-dot.on { background: #3ba55d; }
 
@@ -102,20 +104,25 @@
     <div class="brand">KROSS PADEL</div>
     <div class="hr">
       <span class="clock" id="clock">--:--:--</span>
-      <button class="gear" id="btn-refresh" onclick="refresh()">↻ รีเฟรช</button>
-      <button class="gear" onclick="openSettings()">ตั้งค่า</button>
+      <button class="gear" id="btn-refresh" onclick="refresh()">↻ Refresh</button>
+      <button class="gear" onclick="openSettings()">Settings</button>
     </div>
   </header>
 
   <main>
     <div class="grid" id="grid"></div>
-    <div class="empty" id="empty" style="display:none">ยังไม่มีกล้อง — <a href="#" onclick="openEditor(); return false;" style="color:var(--fg)">+ เพิ่มกล้อง</a></div>
+    <div class="empty" id="empty" style="display:none">No cameras yet — <a href="#" onclick="openEditor(); return false;" style="color:var(--fg)">+ Add camera</a></div>
   </main>
 
   <footer>
     <span>IP <span id="stat-ip" style="color:var(--fg2)">—</span></span>
+    <span class="sys" id="sys-stats">
+      <span>CPU <b id="st-cpu">—</b></span>
+      <span>GPU <b id="st-gpu">—</b></span>
+      <span>RAM <b id="st-ram">—</b></span>
+    </span>
     <span style="margin-left:auto; display:flex; align-items:center; gap:7px;">
-      <span class="ws-dot" id="ws-dot"></span><span id="ws-label">เชื่อมต่อ...</span>
+      <span class="ws-dot" id="ws-dot"></span><span id="ws-label">Connecting...</span>
     </span>
   </footer>
 
@@ -123,7 +130,7 @@
   <div class="backdrop" id="detail-modal">
     <div class="detail">
       <div class="detail-head">
-        <span class="detail-title" id="detail-name">คอร์ท</span>
+        <span class="detail-title" id="detail-name">Court</span>
         <button class="detail-x" onclick="closeDetail()">✕</button>
       </div>
       <div class="detail-cam">
@@ -135,14 +142,14 @@
         <div class="qr-box" id="detail-qr"></div>
         <div>
           <div class="detail-meta" id="detail-meta"></div>
-          <div class="detail-cnt"><span id="detail-cnt">0</span><small>คลิปวันนี้</small></div>
-          <div class="detail-meta" style="margin-top:4px">📱 สแกน QR เพื่อสั่ง REPLAY จากมือถือ</div>
+          <div class="detail-cnt"><span id="detail-cnt">0</span><small>clips today</small></div>
+          <div class="detail-meta" style="margin-top:4px">📱 Scan QR to trigger REPLAY from your phone</div>
         </div>
         <div class="detail-actions">
           <button class="mbtn primary" id="detail-replay" onclick="manualReplay()">⚡ REPLAY</button>
-          <button class="mbtn" onclick="editFromDetail()">แก้ไข</button>
-          <button class="mbtn danger" id="detail-stop" onclick="stopCourt()">⏸ หยุดคอร์ทนี้</button>
-          <button class="mbtn" id="detail-start" onclick="startCourt()" style="display:none">▶ เริ่มคอร์ทนี้</button>
+          <button class="mbtn" onclick="editFromDetail()">Edit</button>
+          <button class="mbtn danger" id="detail-stop" onclick="stopCourt()">⏸ Stop this court</button>
+          <button class="mbtn" id="detail-start" onclick="startCourt()" style="display:none">▶ Start this court</button>
         </div>
       </div>
     </div>
@@ -151,22 +158,22 @@
   <!-- Settings -->
   <div class="backdrop" id="settings-modal">
     <div class="modal">
-      <h3>ตั้งค่า</h3>
+      <h3>Settings</h3>
       <div class="field">
-        <label class="fld">ชื่อ session (ใช้จัดโฟลเดอร์อัปโหลดคลิป)</label>
+        <label class="fld">Session name (used to organize uploaded clip folders)</label>
         <div style="display:flex; gap:8px">
-          <input id="s-session" style="flex:1" placeholder="เช่น 2026-06-08 รอบเย็น" maxlength="60" />
-          <button class="mbtn" onclick="saveSession()">บันทึก</button>
+          <input id="s-session" style="flex:1" placeholder="e.g. 2026-06-08 evening" maxlength="60" />
+          <button class="mbtn" onclick="saveSession()">Save</button>
         </div>
         <span id="s-session-msg" style="font-size:0.72rem; color:#888"></span>
       </div>
       <div class="divider"></div>
       <div id="court-list" style="display:flex; flex-direction:column; gap:9px;"></div>
-      <button class="mbtn" onclick="openEditor()">+ เพิ่มกล้อง</button>
+      <button class="mbtn" onclick="openEditor()">+ Add camera</button>
       <div class="divider"></div>
       <div style="display:flex; gap:10px;">
-        <button class="mbtn" style="flex:1" onclick="closeSettings()">ปิด</button>
-        <button class="mbtn danger" style="flex:1" onclick="stopAll()">หยุดทั้งระบบ</button>
+        <button class="mbtn" style="flex:1" onclick="closeSettings()">Close</button>
+        <button class="mbtn danger" style="flex:1" onclick="stopAll()">Stop all</button>
       </div>
     </div>
   </div>
@@ -174,36 +181,36 @@
   <!-- Court editor -->
   <div class="backdrop" id="editor-modal">
     <div class="modal">
-      <h3 id="editor-title">เพิ่มคอร์ท</h3>
+      <h3 id="editor-title">Add court</h3>
       <div class="row2">
-        <div class="field"><label class="fld">รหัส</label><input id="e-id" maxlength="6" /></div>
-        <div class="field"><label class="fld">ชื่อแสดง</label><input id="e-name" maxlength="40" /></div>
+        <div class="field"><label class="fld">ID</label><input id="e-id" maxlength="6" /></div>
+        <div class="field"><label class="fld">Display name</label><input id="e-name" maxlength="40" /></div>
       </div>
-      <div class="field"><label class="fld">กล้อง</label><select id="e-cam"></select></div>
+      <div class="field"><label class="fld">Camera</label><select id="e-cam"></select></div>
       <div class="field" id="e-rtsp-wrap" style="display:none">
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-          <label class="fld" style="flex:1">ตั้งค่ากล้อง IP / CCTV</label>
-          <button type="button" class="mbtn" id="e-scan-btn" onclick="scanCctv()">🔍 หากล้องในเครือข่าย</button>
+          <label class="fld" style="flex:1">IP / CCTV camera setup</label>
+          <button type="button" class="mbtn" id="e-scan-btn" onclick="scanCctv()">🔍 Find cameras on network</button>
         </div>
         <select id="e-found" style="display:none; margin-top:6px" onchange="pickFound()"></select>
         <div class="row2" style="margin-top:8px">
-          <div class="field"><label class="fld">ยี่ห้อ</label>
+          <div class="field"><label class="fld">Brand</label>
             <select id="e-brand" onchange="rebuildRtsp()">
               <option value="vigi">TP-Link VIGI</option>
               <option value="hikvision">Hikvision</option>
               <option value="dahua">Dahua</option>
-              <option value="custom">อื่นๆ (กรอก path เอง)</option>
+              <option value="custom">Other (enter path manually)</option>
             </select>
           </div>
-          <div class="field"><label class="fld">สตรีม</label>
+          <div class="field"><label class="fld">Stream</label>
             <select id="e-stream" onchange="rebuildRtsp()">
-              <option value="main">Main (เต็มความละเอียด)</option>
-              <option value="sub">Sub (เบา)</option>
+              <option value="main">Main (full resolution)</option>
+              <option value="sub">Sub (light)</option>
             </select>
           </div>
         </div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
-          <input id="e-ip" oninput="rebuildRtsp()" style="flex:2; min-width:140px" placeholder="IP เช่น 192.168.100.80" />
+          <input id="e-ip" oninput="rebuildRtsp()" style="flex:2; min-width:140px" placeholder="IP e.g. 192.168.100.80" />
           <input id="e-port" oninput="rebuildRtsp()" style="flex:1; min-width:64px" placeholder="554" value="554" />
         </div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
@@ -214,18 +221,18 @@
           <label class="fld">RTSP path</label>
           <input id="e-path" oninput="rebuildRtsp()" placeholder="/stream1" />
         </div>
-        <label class="fld" style="margin-top:8px">RTSP URL (ประกอบให้อัตโนมัติ — แก้เองได้)</label>
+        <label class="fld" style="margin-top:8px">RTSP URL (auto-composed — editable)</label>
         <input id="e-rtsp" placeholder="rtsp://user:pass@192.168.100.80:554/stream1" />
         <div style="display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap">
-          <button type="button" class="mbtn" id="e-verify-btn" onclick="verifyRtsp()">✓ ทดสอบการเชื่อมต่อ</button>
+          <button type="button" class="mbtn" id="e-verify-btn" onclick="verifyRtsp()">✓ Test connection</button>
           <span id="e-cctv-msg" style="font-size:0.78rem; color:#888"></span>
         </div>
       </div>
-      <div class="field"><label class="fld">ความละเอียด / เฟรมเรท</label><select id="e-fmt"></select></div>
+      <div class="field"><label class="fld">Resolution / frame rate</label><select id="e-fmt"></select></div>
       <div class="modal-err" id="editor-err"></div>
       <div style="display:flex; gap:10px;">
-        <button class="mbtn" style="flex:1" onclick="closeEditor()">ยกเลิก</button>
-        <button class="mbtn primary" style="flex:1" id="e-save" onclick="saveCourt()">บันทึก</button>
+        <button class="mbtn" style="flex:1" onclick="closeEditor()">Cancel</button>
+        <button class="mbtn primary" style="flex:1" id="e-save" onclick="saveCourt()">Save</button>
       </div>
     </div>
   </div>
@@ -242,6 +249,31 @@
     setInterval(() => {
       document.getElementById('clock').textContent = new Date().toLocaleTimeString('th-TH', { hour12: false });
     }, 1000);
+
+    // ── system resource usage (CPU / GPU / RAM) ──
+    function statColor(pct) {
+      if (pct == null) return 'var(--fg3)';
+      if (pct >= 90) return '#e5484d';
+      if (pct >= 70) return '#facc15';
+      return 'var(--fg2)';
+    }
+    async function pollStats() {
+      let s;
+      try { s = await (await fetch('/stats')).json(); } catch { return; }
+      const cpu = document.getElementById('st-cpu');
+      const gpu = document.getElementById('st-gpu');
+      const ram = document.getElementById('st-ram');
+      cpu.textContent = s.cpu == null ? 'n/a' : `${Math.round(s.cpu)}%`;
+      cpu.style.color = statColor(s.cpu);
+      if (s.gpu) {
+        gpu.textContent = `${Math.round(s.gpu.percent)}% · ${(s.gpu.mem_used/1024).toFixed(1)}/${(s.gpu.mem_total/1024).toFixed(1)}G`;
+        gpu.style.color = statColor(s.gpu.percent);
+      } else { gpu.textContent = 'n/a'; gpu.style.color = 'var(--fg3)'; }
+      ram.textContent = s.ram == null ? 'n/a'
+        : `${Math.round(s.ram)}% · ${s.ram_used}/${s.ram_total}G`;
+      ram.style.color = statColor(s.ram);
+    }
+    setInterval(pollStats, 2000); pollStats();
 
     (async () => {
       try {
@@ -275,12 +307,12 @@
         tile.innerHTML = `
           <div class="cam">
             <video id="img-${c.id}" muted autoplay playsinline></video>
-            <div class="ns" id="ns-${c.id}">${c.running ? '⏳' : 'หยุดอยู่'}</div>
+            <div class="ns" id="ns-${c.id}">${c.running ? '⏳' : 'Stopped'}</div>
             <span class="live"><i></i>LIVE</span>
           </div>
           <div class="bar">
             <span class="nm">${name}</span>
-            <span class="cnt"><span id="cnt-${c.id}">${counters[c.id]}</span><small>คลิป</small></span>
+            <span class="cnt"><span id="cnt-${c.id}">${counters[c.id]}</span><small>clips</small></span>
           </div>`;
         grid.appendChild(tile);
         if (c.running) startPreview(c.id);
@@ -291,7 +323,7 @@
       const b = document.getElementById('btn-refresh');
       b.disabled = true; b.textContent = '↻ ...';
       await loadCourts();
-      b.textContent = '↻ รีเฟรช'; b.disabled = false;
+      b.textContent = '↻ Refresh'; b.disabled = false;
     }
 
     // เล่นพรีวิวสดจาก HLS ที่ server เขียนไว้ (hls.js) — server ไม่ต้อง encode preview แยก
@@ -300,7 +332,8 @@
       const onPlaying = () => { if (nsEl) nsEl.style.display = 'none'; };
       videoEl.addEventListener('playing', onPlaying);
       if (window.Hls && Hls.isSupported()) {
-        const hls = new Hls({ liveSyncDurationCount: 2, maxBufferLength: 6,
+        const hls = new Hls({ liveSyncDurationCount: 2, liveMaxLatencyDurationCount: 5,
+          maxLiveSyncPlaybackRate: 1.5, maxBufferLength: 6,
           manifestLoadingMaxRetry: 10, manifestLoadingRetryDelay: 1000 });
         hls.loadSource(src);
         hls.attachMedia(videoEl);
@@ -327,7 +360,7 @@
       if (!c) return;
       detailCourt = id;
       document.getElementById('detail-name').textContent = c.name;
-      document.getElementById('detail-meta').textContent = `${c.device} · ${c.width}×${c.height}@${c.fps} · ${c.running ? 'กำลังอัด' : 'หยุดอยู่'}`;
+      document.getElementById('detail-meta').textContent = `${c.device} · ${c.width}×${c.height}@${c.fps} · ${c.running ? 'Recording' : 'Stopped'}`;
       document.getElementById('detail-cnt').textContent = counters[id] || 0;
       const running = !!c.running;
       document.getElementById('detail-replay').style.display = running ? '' : 'none';
@@ -338,7 +371,7 @@
       new QRCode(qr, { text: `${operatorBase}/operator?court=${encodeURIComponent(id)}`, width: 110, height: 110, correctLevel: QRCode.CorrectLevel.M });
       const video = document.getElementById('detail-img');
       const ns = document.getElementById('detail-ns');
-      ns.style.display = 'block'; ns.textContent = c.running ? '⏳' : 'หยุดอยู่';
+      ns.style.display = 'block'; ns.textContent = c.running ? '⏳' : 'Stopped';
       document.getElementById('detail-modal').classList.add('open');
       if (detailWs) { try { detailWs.destroy(); } catch {} detailWs = null; }
       if (c.running) detailWs = attachHls(video, id, ns);
@@ -359,7 +392,7 @@
     }
     async function stopCourt() {
       if (!detailCourt) return;
-      if (!confirm(`หยุดคอร์ท ${detailCourt}? (กล้องหยุดอัด แต่ยังอยู่ในระบบ เริ่มใหม่ได้)`)) return;
+      if (!confirm(`Stop court ${detailCourt}? (Camera stops recording but stays in the system — you can restart it)`)) return;
       const id = detailCourt;
       await fetch(`/stop?court=${encodeURIComponent(id)}`, { method: 'POST' });
       await loadCourts();
@@ -371,19 +404,19 @@
       if (!c) return;
       const id = detailCourt;
       const btn = document.getElementById('detail-start');
-      btn.disabled = true; btn.textContent = '⏳ กำลังเริ่ม...';
+      btn.disabled = true; btn.textContent = '⏳ Starting...';
       try {
         const res = await fetch('/courts', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: c.id, name: c.name, device: c.device, fps: c.fps, width: c.width, height: c.height }),
         });
-        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'เปิดกล้องไม่ได้'); }
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Cannot open camera'); }
         await loadCourts();
         openDetail(id);
       } catch (e) {
-        alert('เริ่มคอร์ทไม่ได้: ' + e.message);
+        alert('Cannot start court: ' + e.message);
       } finally {
-        btn.disabled = false; btn.textContent = '▶ เริ่มคอร์ทนี้';
+        btn.disabled = false; btn.textContent = '▶ Start this court';
       }
     }
 
@@ -393,7 +426,7 @@
       let ping;
       ws.onopen = () => {
         document.getElementById('ws-dot').className = 'ws-dot on';
-        document.getElementById('ws-label').textContent = 'เชื่อมต่อแล้ว';
+        document.getElementById('ws-label').textContent = 'Connected';
         ping = setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
       };
       ws.onmessage = ({ data }) => {
@@ -412,7 +445,7 @@
         clearInterval(ping);
         if (systemStopped) return;
         document.getElementById('ws-dot').className = 'ws-dot';
-        document.getElementById('ws-label').textContent = 'ขาดการเชื่อมต่อ...';
+        document.getElementById('ws-label').textContent = 'Disconnected...';
         setTimeout(connect, 3000);
       };
       ws.onerror = () => {};
@@ -425,8 +458,8 @@
       if (detailWs) { try { detailWs.destroy(); } catch {} }
       document.body.innerHTML =
         '<div style="height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#777;background:#0a0a0a;font-family:Helvetica Neue,sans-serif">' +
-        '<div style="font-size:2.4rem">⏹</div><div style="font-size:1.05rem;color:#aaa">ระบบหยุดทำงานแล้ว</div>' +
-        '<a href="/setup" style="margin-top:8px;padding:11px 22px;border:1px solid #444;border-radius:9px;color:#ececec;text-decoration:none">เริ่มใหม่</a></div>';
+        '<div style="font-size:2.4rem">⏹</div><div style="font-size:1.05rem;color:#aaa">System stopped</div>' +
+        '<a href="/setup" style="margin-top:8px;padding:11px 22px;border:1px solid #444;border-radius:9px;color:#ececec;text-decoration:none">Restart</a></div>';
     }
 
     // ── settings ──
@@ -438,17 +471,17 @@
         document.getElementById('s-session').value = session || '';
       } catch {}
       const list = document.getElementById('court-list');
-      list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">โหลด...</span>';
+      list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">Loading...</span>';
       let courts = [];
       try { courts = (await (await fetch('/courts')).json()).courts || []; } catch {}
-      if (!courts.length) { list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">ยังไม่มีคอร์ท</span>'; return; }
+      if (!courts.length) { list.innerHTML = '<span style="color:var(--fg3);font-size:0.82rem">No courts yet</span>'; return; }
       list.innerHTML = '';
       courts.forEach(c => {
         const row = document.createElement('div');
         row.className = 'court-line';
         row.innerHTML = `<div class="ci"><div class="nm">${c.name || c.id} <span style="color:var(--fg3)">(${c.id})</span></div>
-          <div class="meta">${c.device} · ${c.width}×${c.height}@${c.fps} ${c.running ? '· อัดอยู่' : '· หยุด'}</div></div>
-          <button class="edit">แก้ไข</button><button class="del">ลบ</button>`;
+          <div class="meta">${c.device} · ${c.width}×${c.height}@${c.fps} ${c.running ? '· Recording' : '· Stopped'}</div></div>
+          <button class="edit">Edit</button><button class="del">Delete</button>`;
         row.querySelector('.edit').onclick = () => openEditor(c);
         row.querySelector('.del').onclick = () => removeCourt(c.id);
         list.appendChild(row);
@@ -459,26 +492,26 @@
     async function saveSession() {
       const session = document.getElementById('s-session').value.trim();
       const msg = document.getElementById('s-session-msg');
-      msg.style.color = '#888'; msg.textContent = 'กำลังบันทึก...';
+      msg.style.color = '#888'; msg.textContent = 'Saving...';
       try {
         const res = await fetch('/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session }),
         });
         if (!res.ok) throw new Error();
-        msg.style.color = '#22c55e'; msg.textContent = '✅ บันทึกแล้ว';
+        msg.style.color = '#22c55e'; msg.textContent = '✅ Saved';
       } catch {
-        msg.style.color = '#ef4444'; msg.textContent = '❌ บันทึกไม่สำเร็จ';
+        msg.style.color = '#ef4444'; msg.textContent = '❌ Save failed';
       }
     }
 
     async function removeCourt(id) {
-      if (!confirm(`ลบคอร์ท ${id}? (กล้องจะหยุดอัด)`)) return;
+      if (!confirm(`Delete court ${id}? (Camera will stop recording)`)) return;
       await fetch(`/courts/${encodeURIComponent(id)}`, { method: 'DELETE' });
       openSettings(); loadCourts();
     }
     async function stopAll() {
-      if (!confirm('หยุดทั้งระบบ? กล้องทุกตัวจะดับ')) return;
+      if (!confirm('Stop all? All cameras will shut down')) return;
       await fetch('/stop', { method: 'POST' });
     }
 
@@ -486,7 +519,7 @@
     let editorModes = [];
     async function openEditor(court) {
       editingId = court ? court.id : null;
-      document.getElementById('editor-title').textContent = court ? `แก้ไขคอร์ท ${court.id}` : 'เพิ่มคอร์ท';
+      document.getElementById('editor-title').textContent = court ? `Edit court ${court.id}` : 'Add court';
       document.getElementById('editor-err').style.display = 'none';
       const idEl = document.getElementById('e-id');
       idEl.value = court ? court.id : '';
@@ -509,7 +542,7 @@
       try { cams = (await (await fetch('/cameras')).json()).cameras || []; } catch {}
       camSel.innerHTML = '';
       cams.forEach(c => { const o = document.createElement('option'); o.value = c.index; o.textContent = c.name; camSel.appendChild(o); });
-      const ro = document.createElement('option'); ro.value = '__rtsp__'; ro.textContent = '📡 กล้อง IP / CCTV (RTSP)…'; camSel.appendChild(ro);
+      const ro = document.createElement('option'); ro.value = '__rtsp__'; ro.textContent = '📡 IP / CCTV camera (RTSP)…'; camSel.appendChild(ro);
       const isRtsp = !!(court && /^rtsps?:\/\//.test(court.device || ''));
       document.getElementById('e-rtsp').value = isRtsp ? court.device : '';
       if (court) camSel.value = isRtsp ? '__rtsp__' : court.device;
@@ -605,12 +638,12 @@
       const sel = document.getElementById('e-found');
       const msg = document.getElementById('e-cctv-msg');
       const btn = document.getElementById('e-scan-btn');
-      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ ค้นหา...';
-      msg.style.color = '#888'; msg.textContent = 'กำลังสแกนเครือข่าย (~10 วินาที)...';
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ Searching...';
+      msg.style.color = '#888'; msg.textContent = 'Scanning network (~10s)...';
       try {
         const cams = (await (await fetch('/scan-cctv')).json()).cameras || [];
-        if (!cams.length) { msg.style.color = '#ef4444'; msg.textContent = '❌ ไม่พบกล้องในเครือข่าย'; return; }
-        sel.innerHTML = '<option value="">— เลือก IP กล้องที่พบ —</option>';
+        if (!cams.length) { msg.style.color = '#ef4444'; msg.textContent = '❌ No cameras found on network'; return; }
+        sel.innerHTML = '<option value="">— Select a found camera IP —</option>';
         cams.forEach(c => {
           const o = document.createElement('option');
           o.value = c.ip;
@@ -618,9 +651,9 @@
           sel.appendChild(o);
         });
         sel.style.display = 'block';
-        msg.style.color = '#22c55e'; msg.textContent = `พบ ${cams.length} อุปกรณ์ — เลือก IP แล้วใส่ user/pass`;
+        msg.style.color = '#22c55e'; msg.textContent = `Found ${cams.length} device(s) — select an IP then enter user/pass`;
       } catch {
-        msg.style.color = '#ef4444'; msg.textContent = '❌ สแกนไม่สำเร็จ';
+        msg.style.color = '#ef4444'; msg.textContent = '❌ Scan failed';
       } finally { btn.disabled = false; btn.textContent = orig; }
     }
 
@@ -634,18 +667,35 @@
       const url = document.getElementById('e-rtsp').value.trim();
       const msg = document.getElementById('e-cctv-msg');
       const btn = document.getElementById('e-verify-btn');
-      if (!/^rtsps?:\/\//.test(url)) { msg.style.color = '#ef4444'; msg.textContent = '⚠️ ยังไม่มี RTSP URL (กรอก IP/user/pass ก่อน)'; return; }
-      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ กำลังทดสอบ...';
-      msg.style.color = '#888'; msg.textContent = 'กำลังเชื่อมต่อกล้อง (~10 วิ)...';
+      if (!/^rtsps?:\/\//.test(url)) { msg.style.color = '#ef4444'; msg.textContent = '⚠️ No RTSP URL yet (enter IP/user/pass first)'; return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ Testing...';
+      msg.style.color = '#888'; msg.textContent = 'Connecting to camera (~10s)...';
       try {
         const res = await fetch('/verify-rtsp', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url }),
         });
         const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.detail || 'เชื่อมต่อไม่สำเร็จ');
+        if (!res.ok || !data.ok) throw new Error(data.detail || 'Connection failed');
+        // auto-match fps to the camera's real stream + offer its native resolution
+        if (data.fps) {
+          const f = Math.round(data.fps);
+          editorModes.forEach(m => { m.fps = f; m.label = `${m.width}×${m.height} · ${f}fps`; });
+          if (!editorModes.some(m => m.width === data.width && m.height === data.height)) {
+            editorModes.unshift({ width: data.width, height: data.height, fps: f,
+              label: `${data.width}×${data.height} · ${f}fps (camera native)` });
+          }
+          const fsel = document.getElementById('e-fmt');
+          fsel.innerHTML = '';
+          editorModes.forEach((m, i) => {
+            const o = document.createElement('option');
+            o.value = i; o.textContent = m.label;
+            fsel.appendChild(o);
+          });
+          fsel.value = 0;
+        }
         msg.style.color = '#22c55e';
-        msg.textContent = `✅ ต่อติด — ${data.width}×${data.height} ${data.codec || ''}${data.fps ? ' @' + data.fps + 'fps' : ''} (กดบันทึกได้เลย)`;
+        msg.textContent = `✅ Connected — ${data.width}×${data.height}${data.codec ? ' ' + data.codec : ''}${data.fps ? ' @' + Math.round(data.fps) + 'fps' : ''} · fps auto-matched (ready to save)`;
       } catch (e) {
         msg.style.color = '#ef4444'; msg.textContent = '❌ ' + e.message;
       } finally { btn.disabled = false; btn.textContent = orig; }
@@ -658,23 +708,23 @@
       const m = editorModes[parseInt(document.getElementById('e-fmt').value || '0', 10)] || { width:1280, height:720, fps:30 };
       const err = document.getElementById('editor-err');
       const btn = document.getElementById('e-save');
-      if (!id) { err.textContent = 'ใส่รหัสคอร์ท'; err.style.display = 'block'; return; }
+      if (!id) { err.textContent = 'Enter a court ID'; err.style.display = 'block'; return; }
       if (device === '__rtsp__') {
         device = document.getElementById('e-rtsp').value.trim();
-        if (!/^rtsps?:\/\//.test(device)) { err.textContent = 'ใส่ RTSP URL ให้ถูก (rtsp://...)'; err.style.display = 'block'; return; }
+        if (!/^rtsps?:\/\//.test(device)) { err.textContent = 'Enter a valid RTSP URL (rtsp://...)'; err.style.display = 'block'; return; }
       }
-      btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; err.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Saving...'; err.style.display = 'none';
       try {
         const res = await fetch('/courts', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, name, device, fps: m.fps, width: m.width, height: m.height }),
         });
-        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'เปิดกล้องไม่ได้'); }
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Cannot open camera'); }
         closeEditor(); loadCourts();
       } catch (e) {
         err.textContent = e.message; err.style.display = 'block';
       } finally {
-        btn.disabled = false; btn.textContent = 'บันทึก';
+        btn.disabled = false; btn.textContent = 'Save';
       }
     }
 

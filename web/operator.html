@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
@@ -133,8 +133,8 @@
 
   <!-- แสดง user ที่กำลังใช้งาน / ให้กรอกถ้ายังไม่มี -->
   <div id="user-box" style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#888;">
-    <span>User (ไม่บังคับ):</span>
-    <input id="uid-input" placeholder="เว้นว่างได้ถ้ามีการจอง"
+    <span>User (optional):</span>
+    <input id="uid-input" placeholder="Leave blank if there's a booking"
       style="background:#111; border:1px solid #333; color:#facc15; border-radius:8px;
              padding:8px 12px; font-size:0.9rem; font-weight:700; outline:none; width:180px; text-align:center;" />
   </div>
@@ -144,17 +144,17 @@
     <span id="btn-label">REPLAY</span>
   </button>
 
-  <div id="clip-count">คลิปวันนี้: <span id="count">0</span></div>
+  <div id="clip-count">Clips today: <span id="count">0</span></div>
 
   <div id="status">
     <div id="dot"></div>
-    <span id="status-text">กำลังเชื่อมต่อ...</span>
+    <span id="status-text">Connecting...</span>
   </div>
 
   <!-- DEV ONLY: ลบบล็อกนี้ออกตอน production -->
   <div id="dev-bar">
     <span id="dev-label">🛠 DEV</span>
-    <button id="btn-stop" onclick="stopSystem()">⏹ หยุดระบบ</button>
+    <button id="btn-stop" onclick="stopSystem()">⏹ Stop system</button>
   </div>
 
   <script>
@@ -170,7 +170,7 @@
     // ── อ่าน uid / court จาก URL (แอปฝังมาตอนเปิด operator) ───────────────────
     const qs    = new URLSearchParams(location.search);
     const court = qs.get('court') || 'A';
-    document.querySelector('h1').textContent = `🎾 Padel Replay · คอร์ท ${court}`;
+    document.querySelector('h1').textContent = `🎾 Padel Replay · Court ${court}`;
 
     // uid: ใช้จาก URL ก่อน, ถ้าไม่มีให้กรอกในช่อง (จำไว้ใน localStorage)
     const uidInput = document.getElementById('uid-input');
@@ -186,7 +186,7 @@
 
     ws.onopen = () => {
       dot.className = 'online';
-      statusEl.textContent = 'เชื่อมต่อแล้ว';
+      statusEl.textContent = 'Connected';
     };
     ws.onmessage = ({ data }) => {
       const msg = JSON.parse(data);
@@ -197,7 +197,7 @@
     };
     ws.onerror = ws.onclose = () => {
       dot.className = 'offline';
-      statusEl.textContent = 'ขาดการเชื่อมต่อ...';
+      statusEl.textContent = 'Disconnected...';
       setTimeout(() => location.reload(), 3000);
     };
 
@@ -211,7 +211,7 @@
       busy = true;
 
       btn.classList.add('pressing');
-      label.textContent = 'กำลังตัด...';
+      label.textContent = 'Clipping...';
 
       try {
         const params = new URLSearchParams({ uid, court });
@@ -219,7 +219,7 @@
         if (res.ok) {
           btn.classList.remove('pressing');
           btn.classList.add('success');
-          label.textContent = 'ส่งแล้ว ✓';
+          label.textContent = 'Sent ✓';
           setTimeout(reset, 1500);
         } else {
           throw new Error('not ready');
@@ -227,7 +227,7 @@
       } catch {
         btn.classList.remove('pressing');
         btn.classList.add('error');
-        label.textContent = 'ลองใหม่';
+        label.textContent = 'Try again';
         setTimeout(reset, 2000);
       }
     }
@@ -240,7 +240,7 @@
 
     // ── DEV ONLY ─────────────────────────────────────────────────────────────
     async function stopSystem() {
-      if (!confirm('หยุดระบบ?')) return;
+      if (!confirm('Stop system?')) return;
       await fetch('/stop', { method: 'POST' });
     }
   </script>

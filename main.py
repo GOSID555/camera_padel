@@ -87,7 +87,7 @@ def _start_court(cfg: dict) -> bool:
     (seg / "playlist.m3u8").unlink(missing_ok=True)
 
     cap = Capture(
-        output_dir=str(seg), segment_duration=2,
+        output_dir=str(seg), segment_duration=1,
         device=cfg["device"], framerate=int(cfg.get("fps", 30)),
         width=int(cfg.get("width", 1280)), height=int(cfg.get("height", 720)),
     )
@@ -97,7 +97,7 @@ def _start_court(cfg: dict) -> bool:
         print(f"[System] คอร์ท {cid}: เริ่มกล้องไม่สำเร็จ — device {cfg['device']}", flush=True)
         return False
     captures[cid] = cap
-    buffers[cid] = Buffer(segments_dir=str(seg), segment_duration=2)
+    buffers[cid] = Buffer(segments_dir=str(seg), segment_duration=1)
     print(f"[System] คอร์ท {cid}: Recording started — device {cfg['device']} "
           f"@ {cfg.get('fps',30)}fps {cfg.get('width',1280)}x{cfg.get('height',720)}", flush=True)
     return True

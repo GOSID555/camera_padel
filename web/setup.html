@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -77,27 +77,27 @@
 </head>
 <body>
   <div class="logo">🎾 Padel Replay</div>
-  <div class="subtitle">ตั้งค่าหลายคอร์ทครั้งเดียว — ระบบจะจำไว้ให้</div>
+  <div class="subtitle">Set up multiple courts at once — the system remembers them</div>
 
   <div class="panel">
     <!-- Step 1: scan -->
     <div id="scan-card">
       <div class="field">
-        <label class="fld">ชื่อเซสชัน (ไม่บังคับ — ใช้จัดโฟลเดอร์บน Drive)</label>
-        <input id="session" type="text" placeholder="เช่น 2026-06-07 รอบเย็น" maxlength="60" />
+        <label class="fld">Session name (optional — used to organize folders on Drive)</label>
+        <input id="session" type="text" placeholder="e.g. 2026-06-07 evening" maxlength="60" />
       </div>
-      <p class="hint">ต่อกล้องทุกตัวให้เรียบร้อย (USB / IP) แล้วกดค้นหา — ตัวอย่างภาพสดดูได้ที่ Dashboard หลังเริ่ม</p>
-      <div class="error-chip" id="scan-err">ไม่พบกล้อง — ตรวจการต่อสายแล้วลองใหม่</div>
-      <button class="btn" id="btn-scan" onclick="scan()">🔍 ค้นหากล้อง</button>
+      <p class="hint">Connect all cameras (USB / IP), then scan — live preview is available on the Dashboard after starting</p>
+      <div class="error-chip" id="scan-err">No cameras found — check the connections and try again</div>
+      <button class="btn" id="btn-scan" onclick="scan()">🔍 Scan for cameras</button>
     </div>
 
     <!-- Step 2: courts builder -->
     <div id="builder" style="display:none; flex-direction:column; gap:18px;">
       <div class="courts" id="courts"></div>
-      <button class="btn ghost sm" onclick="addCourt()" style="align-self:flex-start">+ เพิ่มคอร์ท</button>
+      <button class="btn ghost sm" onclick="addCourt()" style="align-self:flex-start">+ Add court</button>
       <div class="error-chip" id="start-err"></div>
       <div class="actions">
-        <button class="btn green" id="btn-start" onclick="startAll()">▶ เริ่มทั้งหมด</button>
+        <button class="btn green" id="btn-start" onclick="startAll()">▶ Start all</button>
       </div>
     </div>
   </div>
@@ -109,7 +109,7 @@
 
     async function scan() {
       const btn = document.getElementById('btn-scan');
-      btn.disabled = true; btn.textContent = '⏳ กำลังค้นหา...';
+      btn.disabled = true; btn.textContent = '⏳ Scanning...';
       document.getElementById('scan-err').style.display = 'none';
       try {
         // ขอ permission กล้อง (ช่วยให้ enumerate เสถียร) — ไม่บังคับ
@@ -122,7 +122,7 @@
         addCourt();   // เริ่มด้วย 1 คอร์ท
       } catch (e) {
         document.getElementById('scan-err').style.display = 'block';
-        btn.disabled = false; btn.textContent = '🔍 ค้นหาอีกครั้ง';
+        btn.disabled = false; btn.textContent = '🔍 Scan again';
       }
     }
 
@@ -134,41 +134,41 @@
       card.dataset.row = i;
       card.innerHTML = `
         <div class="head">
-          <span class="tag">คอร์ท</span>
-          <button class="del" onclick="this.closest('.court-card').remove()">✕ ลบ</button>
+          <span class="tag">Court</span>
+          <button class="del" onclick="this.closest('.court-card').remove()">✕ Remove</button>
         </div>
         <div class="grid3">
           <div class="field">
-            <label class="fld">รหัส</label>
+            <label class="fld">ID</label>
             <input class="c-id" value="${id}" maxlength="6" />
           </div>
           <div class="field">
-            <label class="fld">ชื่อแสดง</label>
+            <label class="fld">Display name</label>
             <input class="c-name" value="Court ${id}" maxlength="40" />
           </div>
           <div class="field">
-            <label class="fld">กล้อง</label>
+            <label class="fld">Camera</label>
             <select class="c-cam"></select>
           </div>
         </div>
         <div class="field c-rtsp-wrap" style="display:none">
-          <label class="fld">ค้นหากล้อง CCTV อัตโนมัติ (ONVIF)</label>
+          <label class="fld">Auto-discover CCTV camera (ONVIF)</label>
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-            <button type="button" class="btn sm ghost btn-scan-cctv" onclick="scanCctv(this)">🔍 ค้นหากล้องในเครือข่าย</button>
+            <button type="button" class="btn sm ghost btn-scan-cctv" onclick="scanCctv(this)">🔍 Find cameras on network</button>
             <select class="c-onvif" style="flex:1; min-width:160px; display:none"></select>
           </div>
           <div class="c-cred" style="display:none; gap:8px; flex-wrap:wrap; margin-top:8px">
-            <input class="c-user" style="flex:1; min-width:120px" placeholder="ONVIF user (เช่น admin)" />
+            <input class="c-user" style="flex:1; min-width:120px" placeholder="ONVIF user (e.g. admin)" />
             <input class="c-pass" type="password" style="flex:1; min-width:120px" placeholder="ONVIF password" />
-            <button type="button" class="btn sm" onclick="fetchCctvRtsp(this)">📡 ดึงลิงก์</button>
+            <button type="button" class="btn sm" onclick="fetchCctvRtsp(this)">📡 Get link</button>
           </div>
           <div class="c-cctv-msg" style="font-size:0.78rem; color:#888; margin-top:6px"></div>
-          <label class="fld" style="margin-top:8px">RTSP URL (กล้อง IP / CCTV)</label>
+          <label class="fld" style="margin-top:8px">RTSP URL (IP / CCTV camera)</label>
           <input class="c-rtsp" placeholder="rtsp://user:pass@192.168.100.60:554/stream1" />
         </div>
         <div class="field">
-          <label class="fld">ความละเอียด / เฟรมเรท</label>
-          <select class="c-fmt"><option>— เลือกกล้องก่อน —</option></select>
+          <label class="fld">Resolution / frame rate</label>
+          <select class="c-fmt"><option>— Select a camera first —</option></select>
         </div>`;
       const camSel = card.querySelector('.c-cam');
       cameras.forEach((c, idx) => {
@@ -177,7 +177,7 @@
         camSel.appendChild(o);
       });
       const ro = document.createElement('option');
-      ro.value = '__rtsp__'; ro.textContent = '📡 กล้อง IP / CCTV (RTSP)…';
+      ro.value = '__rtsp__'; ro.textContent = '📡 IP / CCTV camera (RTSP)…';
       camSel.appendChild(ro);
       camSel.onchange = () => loadFormats(card, camSel.value);
       document.getElementById('courts').appendChild(card);
@@ -210,11 +210,11 @@
         return;
       }
       rtspWrap.style.display = 'none';
-      sel.innerHTML = '<option>⏳ กำลังตรวจสอบ...</option>';
+      sel.innerHTML = '<option>⏳ Checking...</option>';
       try {
         const data = await (await fetch(`/camera-formats?device=${encodeURIComponent(device)}`)).json();
         const modes = (data.modes && data.modes.length) ? data.modes
-                      : [{ width:1280, height:720, fps:30, label:'1280×720 · 30fps (ค่าเริ่มต้น)' }];
+                      : [{ width:1280, height:720, fps:30, label:'1280×720 · 30fps (default)' }];
         sel.innerHTML = '';
         modes.forEach((m, idx) => {
           const o = document.createElement('option');
@@ -232,13 +232,13 @@
       const wrap = btn.closest('.c-rtsp-wrap');
       const sel  = wrap.querySelector('.c-onvif');
       const msg  = wrap.querySelector('.c-cctv-msg');
-      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ กำลังค้นหา...';
-      msg.style.color = '#888'; msg.textContent = 'กำลังสแกนเครือข่าย (~4 วินาที)...';
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ Searching...';
+      msg.style.color = '#888'; msg.textContent = 'Scanning network (~4s)...';
       try {
         const data = await (await fetch('/scan-cctv')).json();
         const cams = data.cameras || [];
-        if (!cams.length) { msg.style.color = '#ef4444'; msg.textContent = '❌ ไม่พบกล้อง ONVIF ในเครือข่าย'; return; }
-        sel.innerHTML = '<option value="">— เลือกกล้องที่พบ —</option>';
+        if (!cams.length) { msg.style.color = '#ef4444'; msg.textContent = '❌ No ONVIF cameras found on network'; return; }
+        sel.innerHTML = '<option value="">— Select a found camera —</option>';
         cams.forEach(c => {
           const o = document.createElement('option');
           o.value = c.xaddr; o.dataset.ip = c.ip;
@@ -248,9 +248,9 @@
         sel.style.display = 'block';
         wrap.querySelector('.c-cred').style.display = 'flex';
         msg.style.color = '#22c55e';
-        msg.textContent = `✅ พบ ${cams.length} กล้อง — เลือกกล้องแล้วใส่รหัส ONVIF`;
+        msg.textContent = `✅ Found ${cams.length} camera(s) — select one and enter ONVIF credentials`;
       } catch {
-        msg.style.color = '#ef4444'; msg.textContent = '❌ สแกนไม่สำเร็จ';
+        msg.style.color = '#ef4444'; msg.textContent = '❌ Scan failed';
       } finally { btn.disabled = false; btn.textContent = orig; }
     }
 
@@ -263,19 +263,19 @@
       const ip    = opt ? opt.dataset.ip : '';
       const user  = wrap.querySelector('.c-user').value.trim();
       const password = wrap.querySelector('.c-pass').value;
-      if (!xaddr) { msg.style.color = '#ef4444'; msg.textContent = '⚠️ เลือกกล้องก่อน'; return; }
-      if (!user)  { msg.style.color = '#ef4444'; msg.textContent = '⚠️ ใส่ ONVIF user/password'; return; }
+      if (!xaddr) { msg.style.color = '#ef4444'; msg.textContent = '⚠️ Select a camera first'; return; }
+      if (!user)  { msg.style.color = '#ef4444'; msg.textContent = '⚠️ Enter ONVIF user/password'; return; }
       btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳...';
-      msg.style.color = '#888'; msg.textContent = 'กำลังขอลิงก์จากกล้อง...';
+      msg.style.color = '#888'; msg.textContent = 'Requesting link from camera...';
       try {
         const res = await fetch('/cctv-rtsp', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ xaddr, user, password, ip }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'ดึงลิงก์ไม่สำเร็จ');
+        if (!res.ok) throw new Error(data.detail || 'Failed to get link');
         wrap.querySelector('.c-rtsp').value = data.url;
-        msg.style.color = '#22c55e'; msg.textContent = '✅ ได้ลิงก์ RTSP แล้ว — กดเริ่มได้เลย';
+        msg.style.color = '#22c55e'; msg.textContent = '✅ Got RTSP link — ready to start';
       } catch (e) {
         msg.style.color = '#ef4444'; msg.textContent = '❌ ' + e.message;
       } finally { btn.disabled = false; btn.textContent = orig; }
@@ -287,7 +287,7 @@
       const btn = document.getElementById('btn-start');
       const err = document.getElementById('start-err');
       err.style.display = 'none';
-      btn.disabled = true; btn.textContent = '⏳ กำลังเริ่ม...';
+      btn.disabled = true; btn.textContent = '⏳ Starting...';
       const session = document.getElementById('session').value.trim();
 
       const fails = [];
@@ -297,31 +297,31 @@
         let device = card.querySelector('.c-cam').value;
         let fmt = { width:1280, height:720, fps:30 };
         try { fmt = JSON.parse(card.querySelector('.c-fmt').value); } catch {}
-        if (!id) { fails.push('(ไม่มีรหัสคอร์ท)'); continue; }
+        if (!id) { fails.push('(missing court ID)'); continue; }
         if (device === '__rtsp__') {
           device = card.querySelector('.c-rtsp').value.trim();
-          if (!/^rtsps?:\/\//.test(device)) { fails.push(`${id}: RTSP URL ไม่ถูก`); continue; }
+          if (!/^rtsps?:\/\//.test(device)) { fails.push(`${id}: invalid RTSP URL`); continue; }
         }
         try {
           const res = await fetch('/courts', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, name, device, fps: fmt.fps, width: fmt.width, height: fmt.height, session }),
           });
-          if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'เปิดกล้องไม่ได้'); }
+          if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Cannot open camera'); }
         } catch (e) {
           fails.push(`${id}: ${e.message}`);
         }
       }
 
       if (fails.length) {
-        err.textContent = '⚠️ บางคอร์ทเริ่มไม่สำเร็จ — ' + fails.join(' · ');
+        err.textContent = '⚠️ Some courts failed to start — ' + fails.join(' · ');
         err.style.display = 'block';
-        btn.disabled = false; btn.textContent = '▶ ลองเริ่มอีกครั้ง';
+        btn.disabled = false; btn.textContent = '▶ Try starting again';
         // ถ้ามีบางคอร์ทสำเร็จก็ยังไป dashboard ได้
         setTimeout(() => location.href = '/dashboard', 2500);
         return;
       }
-      btn.textContent = '✅ สำเร็จ';
+      btn.textContent = '✅ Done';
       location.href = '/dashboard';
     }
   </script>
